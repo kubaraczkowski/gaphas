@@ -67,12 +67,23 @@ class MyBox(Box):
     """Box with an example connection protocol.
     """
 
+    def outline(self):
+        h = self.handles()
+        return ((h[0].pos.x, h[0].pos.y), (h[1].pos.x, h[1].pos.y),
+                (h[2].pos.x, h[2].pos.y), (h[3].pos.x, h[3].pos.y))
+
+
+
 class MyLine(Line):
     """Line with experimental connection protocol.
     """
     def __init__(self):
         super(MyLine, self).__init__()
         self.fuzziness = 2
+
+    def endpoints(self):
+        h = self.handles()
+        return ((h[0].pos.x, h[1].pos.y), (h[-1].pos.x, h[-1].pos.y))
 
     def draw_head(self, context):
         cr = context.cairo

@@ -40,6 +40,7 @@ from gaphas import table
 from gaphas.decorators import nonrecursive, async, PRIORITY_HIGH_IDLE
 from state import observed, reversible_method, reversible_pair
 
+import libavoid
 
 #
 # Information about two connected items
@@ -97,6 +98,8 @@ class Canvas(object):
         self._dirty_index = False
 
         self._registered_views = set()
+
+        self.router = libavoid.Router()
     
     solver = property(lambda s: s._solver)
 
@@ -674,6 +677,8 @@ class Canvas(object):
 
             self.update_constraints(dirty_matrix_items)
 
+            self.update_routes(dirty_matrix_items)
+
             # no matrix can change during constraint solving
             assert not self._dirty_matrix_items, 'No matrices may have been marked dirty (%s)' % (self._dirty_matrix_items,)
 
@@ -770,6 +775,56 @@ class Canvas(object):
 
         # solve all constraints
         self._solver.solve()
+
+
+    def _router_conn_updated(self, conn, item):
+        print 'updated line', item, 'to', conn.displayRoute
+        self.request_update(item, matrix=False)
+
+
+    def update_routes(self, items):
+        """
+        Update routes for automatic line routing.
+
+        Items that function as obstacles should implement a method named
+        `outline()` that returns a list of points.
+
+
+        """
+        for item in items:
+            outline = endpoints = None
+            try:
+                outline = item.outline()
+            except AttributeError:
+                try:
+                    endpoints = item.endpoints()
+                except AttributeError:
+                    continue
+            if outline:
+                print 'Update outline for', item, outline
+                # TODO: convert i2c
+                i2c = self.get_matrix_i2c(item)
+                coutline = map(lambda xy: i2c.transform_point(*xy), outline)
+                print 'coutline', coutline
+                try:
+                    shape = item._canvas_shape
+                except AttributeError:
+                    shape = libavoid.ShapeRef(self.router, coutline)
+                    item._canvas_shape = shape
+                    self.router.addShape(shape)
+                else:
+                    self.router.moveShape(shape, coutline)
+            elif endpoints:
+                try:
+                    conn = item._canvas_conn
+                except AttributeError:
+                    conn = libavoid.ConnRef(self.router)
+                    item._cans_conn = conn
+                    conn.setCallback(self._router_conn_updated, conn, item)
+                i2c = self.get_matrix_i2c(item)
+                conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
+                conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
+        self.router.processTransaction()
 
 
     def _normalize(self, items):
