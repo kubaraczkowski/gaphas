@@ -679,7 +679,7 @@ class Canvas(object):
             # item's can be marked dirty due to external constraints solving
             extend_dirty_items(dirty_items)
 
-            self.update_routes(dirty_matrix_items)
+            self.update_routes(dirty_matrix_items.union(dirty_items))
             # item's can be marked dirty due to routing
             extend_dirty_items(dirty_items)
 
