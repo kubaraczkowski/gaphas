@@ -676,15 +676,15 @@ class Canvas(object):
             self._dirty_matrix_items.clear()
 
             self.update_constraints(dirty_matrix_items)
-
-            self.update_routes(dirty_matrix_items)
-
-            # no matrix can change during constraint solving
-            assert not self._dirty_matrix_items, 'No matrices may have been marked dirty (%s)' % (self._dirty_matrix_items,)
-
             # item's can be marked dirty due to external constraints solving
             extend_dirty_items(dirty_items)
 
+            self.update_routes(dirty_matrix_items)
+            # item's can be marked dirty due to routing
+            extend_dirty_items(dirty_items)
+
+            # no matrix can change during constraint solving
+            assert not self._dirty_matrix_items, 'No matrices may have been marked dirty (%s)' % (self._dirty_matrix_items,)
             assert not self._dirty_items, 'No items may have been marked dirty (%s)' % (self._dirty_items,)
 
             # normalize items, which changed after constraint solving;
@@ -779,8 +779,13 @@ class Canvas(object):
 
     def _router_conn_updated(self, conn, item):
         print 'updated line', item, 'to', conn.displayRoute
-        self.request_update(item, matrix=False)
-
+        try:
+            c2i = self.get_matrix_c2i(item)
+            ioutline = map(lambda xy: c2i.transform_point(*xy), conn.displayRoute)
+            item.update_endpoints(ioutline)
+            self.request_update(item, matrix=False)
+        except:
+            logging.error('Unable to handle callback', exc_info=1)
 
     def update_routes(self, items):
         """
@@ -801,17 +806,14 @@ class Canvas(object):
                 except AttributeError:
                     continue
             if outline:
-                print 'Update outline for', item, outline
                 # TODO: convert i2c
                 i2c = self.get_matrix_i2c(item)
                 coutline = map(lambda xy: i2c.transform_point(*xy), outline)
-                print 'coutline', coutline
                 try:
                     shape = item._canvas_shape
                 except AttributeError:
                     shape = libavoid.ShapeRef(self.router, coutline)
                     item._canvas_shape = shape
-                    self.router.addShape(shape)
                 else:
                     self.router.moveShape(shape, coutline)
             elif endpoints:
@@ -819,11 +821,12 @@ class Canvas(object):
                     conn = item._canvas_conn
                 except AttributeError:
                     conn = libavoid.ConnRef(self.router)
-                    item._cans_conn = conn
+                    item._canvas_conn = conn
                     conn.setCallback(self._router_conn_updated, conn, item)
                 i2c = self.get_matrix_i2c(item)
                 conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
                 conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
+                print 'points are', i2c.transform_point(*endpoints[0]), i2c.transform_point(*endpoints[-1])
         self.router.processTransaction()
 
 
