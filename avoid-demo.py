@@ -24,20 +24,16 @@ except ImportError:
 else:
     pygtk.require('2.0') 
 
-import math
 import gtk
 import cairo
 from gaphas import Canvas, GtkView, View
 from gaphas.geometry import Rectangle
-from gaphas.examples import Box, PortoBox, Text, FatLine, Circle
-from gaphas.item import Line, NW, SE
+from gaphas.examples import Box
+from gaphas.item import Line
 from gaphas.tool import PlacementTool, HandleTool
 from gaphas.segment import Segment
 import gaphas.guide
-from gaphas.painter import PainterChain, ItemPainter, HandlePainter, FocusedItemPainter, ToolPainter, BoundingBoxPainter
 from gaphas import state
-from gaphas.util import text_extents, text_underline
-from gaphas.freehand import FreeHandPainter
 
 from gaphas import painter
 #painter.DEBUG_DRAW_BOUNDING_BOX = True
@@ -123,36 +119,8 @@ class MyLine(Line):
         cr.stroke()
 
 
-class MyText(Text):
-    """
-    Text with experimental connection protocol.
-    """
-    
-    def draw(self, context):
-        Text.draw(self, context)
-        cr = context.cairo
-        w, h = text_extents(cr, self.text, multiline=self.multiline)
-        cr.rectangle(0, 0, w, h)
-        cr.set_source_rgba(.3, .3, 1., .6)
-        cr.stroke()
-
-
-class UnderlineText(Text):
-
-    def draw(self, context):
-        cr = context.cairo
-        text_underline(cr, 0, 0, "Some text(y)")
- 
-
 def create_window(canvas, title, zoom=1.0):
     view = GtkView()
-    view.painter = PainterChain(). \
-        append(ItemPainter()). \
-        append(HandlePainter()). \
-        append(FocusedItemPainter()). \
-        append(ToolPainter())
-        #append(FreeHandPainter(ItemPainter())). \
-    view.bounding_box_painter = FreeHandPainter(BoundingBoxPainter())
     w = gtk.Window()
     w.set_title(title)
     h = gtk.HBox()
