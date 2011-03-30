@@ -66,8 +66,14 @@ class AvoidCanvas(Canvas):
 
     def __init__(self):
         super(AvoidCanvas, self).__init__()
-        self.router = libavoid.Router()
-    
+        self.router = libavoid.Router(libavoid.ORTHOGONAL_ROUTING)
+        self.router.setRoutingPenalty(libavoid.SEGMENT_PENALTY, 40)
+        self.router.setRoutingPenalty(libavoid.ANGLE_PENALTY, 400)
+        self.router.setRoutingPenalty(libavoid.CROSSING_PENALTY, 4000)
+        self.router.setRoutingPenalty(libavoid.FIXED_SHARED_PATH_PENALTY, 8000)
+        self.router.setRoutingPenalty(libavoid.PORT_DIRECTION_PENALTY, 4000)
+        self.router.setOrthogonalNudgeDistance(14)
+
     def update_constraints(self, items):
         super(AvoidCanvas, self).update_constraints(items)
 
