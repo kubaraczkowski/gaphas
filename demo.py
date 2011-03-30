@@ -28,7 +28,6 @@ import math
 import gtk
 import cairo
 from gaphas import Canvas, GtkView, View
-from gaphas.geometry import Rectangle
 from gaphas.examples import Box, PortoBox, Text, FatLine, Circle
 from gaphas.item import Line, NW, SE
 from gaphas.tool import PlacementTool, HandleTool
@@ -68,45 +67,12 @@ class MyBox(Box):
     """Box with an example connection protocol.
     """
 
-    def outline(self):
-        h = self.handles()
-        m = 0
-        r = Rectangle(h[0].pos.x, h[0].pos.y, x1=h[2].pos.x, y1=h[2].pos.y)
-        r.expand(5)
-        print r
-        xMin, yMin = r.x, r.y
-        xMax, yMax = r.x1, r.y1
-        #print x0, y0, x1, y1
-        #return ((x0, y0), (x0, y1), (x1, y1), (x1, y0), (x0, y0))
-        return ((xMax, yMin), (xMax, yMax), (xMin, yMax), (xMin, yMin))
-
-        #return [(h[0].pos.x, h[0].pos.y), (h[1].pos.x, h[1].pos.y),
-        #        (h[2].pos.x, h[2].pos.y), (h[3].pos.x, h[3].pos.y)]
-
-
 class MyLine(Line):
     """Line with experimental connection protocol.
     """
     def __init__(self):
         super(MyLine, self).__init__()
         self.fuzziness = 2
-
-    def endpoints(self):
-        h = self.handles()
-        return ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
-
-    def update_endpoints(self, newpoints):
-        # TODO: set start and end point.
-        # Set points in the middle, split segments, etc.
-        print 'Update endpoints to', newpoints
-        n_points = len(newpoints)
-        while len(self._handles) < n_points:
-            self._handles.insert(1, gaphas.Handle())
-        while len(self._handles) > n_points:
-            del self._handles[1]
-        for h, p in zip(self._handles, newpoints):
-            h.pos.x = p[0]
-            h.pos.y = p[1]
 
     def draw_head(self, context):
         cr = context.cairo
@@ -121,6 +87,8 @@ class MyLine(Line):
         cr.line_to(0, 0)
         cr.line_to(10, 10)
         cr.stroke()
+
+
 
 
 class MyText(Text):
@@ -147,11 +115,10 @@ class UnderlineText(Text):
 def create_window(canvas, title, zoom=1.0):
     view = GtkView()
     view.painter = PainterChain(). \
-        append(ItemPainter()). \
+        append(FreeHandPainter(ItemPainter())). \
         append(HandlePainter()). \
         append(FocusedItemPainter()). \
         append(ToolPainter())
-        #append(FreeHandPainter(ItemPainter())). \
     view.bounding_box_painter = FreeHandPainter(BoundingBoxPainter())
     w = gtk.Window()
     w.set_title(title)
@@ -531,4 +498,4 @@ if __name__ == '__main__':
     else:
         main()
 
-# vim: sw=4:et:ai
+# vim: sw=4:et:
