@@ -24,6 +24,7 @@ except ImportError:
 else:
     pygtk.require('2.0') 
 
+import logging
 import gtk
 import cairo
 from gaphas import Canvas, GtkView, View
@@ -71,65 +72,31 @@ class AvoidCanvas(Canvas):
         super(AvoidCanvas, self).update_constraints(items)
 
         # item's can be marked dirty due to constraint solving
-        self._extend_dirty_items(items)
+        for item in items.union(self._dirty_items):
+            item.router_update()
 
-        self.update_routes(items)
-
-
-    def _router_conn_updated(self, conn, item):
-        print 'updated line', item, 'to', conn.displayRoute
-        try:
-            c2i = self.get_matrix_c2i(item)
-            ioutline = map(lambda xy: c2i.transform_point(*xy), conn.displayRoute)
-            item.update_endpoints(ioutline)
-            self.request_update(item, matrix=False)
-        except:
-            logging.error('Unable to handle callback', exc_info=1)
-
-    def update_routes(self, items):
-        """
-        Update routes for automatic line routing.
-
-        Items that function as obstacles should implement a method named
-        `outline()` that returns a list of points.
-        """
-        for item in items:
-            outline = endpoints = None
-            try:
-                outline = item.outline()
-            except AttributeError:
-                try:
-                    endpoints = item.endpoints()
-                except AttributeError:
-                    continue
-            if outline:
-                # TODO: convert i2c
-                i2c = self.get_matrix_i2c(item)
-                coutline = map(lambda xy: i2c.transform_point(*xy), outline)
-                try:
-                    shape = item._canvas_shape
-                except AttributeError:
-                    shape = libavoid.ShapeRef(self.router, coutline)
-                    item._canvas_shape = shape
-                else:
-                    self.router.moveShape(shape, coutline)
-            elif endpoints:
-                try:
-                    conn = item._canvas_conn
-                except AttributeError:
-                    conn = libavoid.ConnRef(self.router)
-                    item._canvas_conn = conn
-                    conn.setCallback(self._router_conn_updated, conn, item)
-                i2c = self.get_matrix_i2c(item)
-                conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
-                conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
-                print 'points are', i2c.transform_point(*endpoints[0]), i2c.transform_point(*endpoints[-1])
         self.router.processTransaction()
 
 
 class MyBox(Box):
     """Box with an example connection protocol.
     """
+
+    def setup_canvas(self):
+        super(MyBox, self).setup_canvas()
+        self._router_shape = libavoid.ShapeRef(self.canvas.router, self.outline())
+
+    def teardown_canvas(self):
+        self.canvas.router.deleteShape(self._router_shape)
+        super(MyBox, self).teardown_canvas()
+
+    def pre_update(self, context):
+        super(MyBox, self).pre_update(context)
+
+    def router_update(self):
+        i2c = self.canvas.get_matrix_i2c(self)
+        coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
+        self.canvas.router.moveShape(self._router_shape, coutline)
 
     def outline(self):
         h = self.handles()
@@ -139,12 +106,7 @@ class MyBox(Box):
         print r
         xMin, yMin = r.x, r.y
         xMax, yMax = r.x1, r.y1
-        #print x0, y0, x1, y1
-        #return ((x0, y0), (x0, y1), (x1, y1), (x1, y0), (x0, y0))
         return ((xMax, yMin), (xMax, yMax), (xMin, yMax), (xMin, yMin))
-
-        #return [(h[0].pos.x, h[0].pos.y), (h[1].pos.x, h[1].pos.y),
-        #        (h[2].pos.x, h[2].pos.y), (h[3].pos.x, h[3].pos.y)]
 
 
 class MyLine(Line):
@@ -154,9 +116,34 @@ class MyLine(Line):
         super(MyLine, self).__init__()
         self.fuzziness = 2
 
-    def endpoints(self):
+    def setup_canvas(self):
+        super(MyLine, self).setup_canvas()
+        self._router_shape = libavoid.ConnRef(self.canvas.router)
+        self._router_shape.setCallback(self._router_shape_updated)
+
+    def teardown_canvas(self):
+        self.canvas.router.deleteConnector(self._router_shape)
+        super(MyLine, self).teardown_canvas()
+
+    def pre_update(self, context):
+        super(MyLine, self).pre_update(context)
+
+    def router_update(self):
         h = self.handles()
-        return ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
+        endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
+        i2c = self.canvas.get_matrix_i2c(self)
+        conn = self._router_shape
+        conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
+        conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
+
+    def _router_shape_updated(self):
+        try:
+            c2i = self.canvas.get_matrix_c2i(self)
+            ioutline = map(lambda xy: c2i.transform_point(*xy), self._router_shape.displayRoute)
+            self.update_endpoints(ioutline)
+            self.canvas.request_update(self, matrix=False)
+        except:
+            logging.error('Unable to handle callback', exc_info=1)
 
     def update_endpoints(self, newpoints):
         # TODO: set start and end point.

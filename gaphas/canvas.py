@@ -134,9 +134,6 @@ class Canvas(object):
         """
         item._set_canvas(None)
         self._tree.remove(item)
-        if hasattr(item, '_canvas_shape'):
-            self.router.deleteShape(item._canvas_shape)
-            del item._canvas_shape
         if hasattr(item, '_canvas_conn'):
             self.router.deleteConnector(item._canvas_conn)
             del item._canvas_conn
