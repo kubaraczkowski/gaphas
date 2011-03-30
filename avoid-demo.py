@@ -41,6 +41,8 @@ from gaphas import painter
 # Ensure data gets picked well:
 import gaphas.picklers
 
+import libavoid
+
 # Global undo list
 undo_list = []
 
@@ -58,6 +60,71 @@ def factory(view, cls):
         view.canvas.add(item)
         return item
     return wrapper
+
+class AvoidCanvas(Canvas):
+
+    def __init__(self):
+        super(AvoidCanvas, self).__init__()
+        self.router = libavoid.Router()
+    
+    def update_constraints(self, items):
+        super(AvoidCanvas, self).update_constraints(items)
+
+        # item's can be marked dirty due to constraint solving
+        self._extend_dirty_items(items)
+
+        self.update_routes(items)
+
+
+    def _router_conn_updated(self, conn, item):
+        print 'updated line', item, 'to', conn.displayRoute
+        try:
+            c2i = self.get_matrix_c2i(item)
+            ioutline = map(lambda xy: c2i.transform_point(*xy), conn.displayRoute)
+            item.update_endpoints(ioutline)
+            self.request_update(item, matrix=False)
+        except:
+            logging.error('Unable to handle callback', exc_info=1)
+
+    def update_routes(self, items):
+        """
+        Update routes for automatic line routing.
+
+        Items that function as obstacles should implement a method named
+        `outline()` that returns a list of points.
+        """
+        for item in items:
+            outline = endpoints = None
+            try:
+                outline = item.outline()
+            except AttributeError:
+                try:
+                    endpoints = item.endpoints()
+                except AttributeError:
+                    continue
+            if outline:
+                # TODO: convert i2c
+                i2c = self.get_matrix_i2c(item)
+                coutline = map(lambda xy: i2c.transform_point(*xy), outline)
+                try:
+                    shape = item._canvas_shape
+                except AttributeError:
+                    shape = libavoid.ShapeRef(self.router, coutline)
+                    item._canvas_shape = shape
+                else:
+                    self.router.moveShape(shape, coutline)
+            elif endpoints:
+                try:
+                    conn = item._canvas_conn
+                except AttributeError:
+                    conn = libavoid.ConnRef(self.router)
+                    item._canvas_conn = conn
+                    conn.setCallback(self._router_conn_updated, conn, item)
+                i2c = self.get_matrix_i2c(item)
+                conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
+                conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
+                print 'points are', i2c.transform_point(*endpoints[0]), i2c.transform_point(*endpoints[-1])
+        self.router.processTransaction()
 
 
 class MyBox(Box):
@@ -391,7 +458,7 @@ def main():
     def print_handler(event):
         print 'event:', event
 
-    c=Canvas()
+    c=AvoidCanvas()
 
     create_window(c, 'Line avoiding demo')
 
