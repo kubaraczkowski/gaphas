@@ -68,7 +68,8 @@ class AvoidCanvas(Canvas):
 
     def __init__(self):
         super(AvoidCanvas, self).__init__()
-        self.router = libavoid.Router(libavoid.ORTHOGONAL_ROUTING)
+        #self.router = libavoid.Router(libavoid.ORTHOGONAL_ROUTING)
+        self.router = libavoid.Router(libavoid.POLY_LINE_ROUTING)
         self.router.setRoutingPenalty(libavoid.SEGMENT_PENALTY, 40)
         self.router.setRoutingPenalty(libavoid.ANGLE_PENALTY, 400)
         self.router.setRoutingPenalty(libavoid.CROSSING_PENALTY, 4000)
@@ -139,16 +140,15 @@ class MyLine(Line):
     def router_update(self):
         h = self.handles()
         endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
-        i2c = self.canvas.get_matrix_i2c(self)
+        transform_point = self.canvas.get_matrix_i2c(self).transform_point
         conn = self._router_shape
-        conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
-        conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
+        conn.setSourceEndpoint(transform_point(*endpoints[0]))
+        conn.setDestEndpoint(transform_point(*endpoints[-1]))
         checkpoints = []
-        for h in self._handles:
+        for h in self._handles[1:-1]:
             if getattr(h, 'checkpoint', False):
-                checkpoints.append(i2c.transform_point(*h.pos))
+                checkpoints.append(transform_point(*h.pos))
         conn.routingCheckpoints = checkpoints
-        print 'set checkpoints', checkpoints
 
     def _router_shape_updated(self):
         try:
@@ -157,8 +157,6 @@ class MyLine(Line):
             checkpoints = self._router_shape.routingCheckpoints
             newpoints = []
             checkpoint_index = 0
-            print 'route', route
-            print 'checkpoints', checkpoints
             for p in route:
                 if checkpoint_index < len(checkpoints) \
                         and p == checkpoints[checkpoint_index]:
@@ -166,7 +164,6 @@ class MyLine(Line):
                     checkpoint_index += 1
                 else:
                     newpoints.append((transform_point(*p), False))
-            print newpoints
             self.update_endpoints(newpoints)
             self.canvas.request_update(self, matrix=False)
         except:
@@ -176,30 +173,18 @@ class MyLine(Line):
         """
         Newpoints is a list of tuple (point, is_checkpoint).
         """
-        #handles = self._handles
-        #p_index, h_index = 0, 0
-        #m = []
-        #while p_index < len(newp) and h_index < len(handles):
-        #    if newp[p_index][1]:
-        #        # is checkpoint
-        #        # loop until we find a 'not handle.routing'
-        #        pass
-        #    elif handles[h_index]: # is not routing
-        #print 'real handles:', handles
-        # Split newpoints segments where "checkpoint == True"
-        # Split handles where not h.routing
-        # For all segments, make sure the number of handles matches the newpoints
-        # TODO: How to determine where to split? Since connections will also move
+        # TODO: How to determine where to split? Connections will also move
 
         n_points = len(newpoints)
         segm = Segment(self, None)
+
         # Find only router points to remove and add
         while len(self._handles) < n_points:
             h, ports = segm.split_segment(0, 2)
         while len(self._handles) > n_points:
             segm.merge_segment(0)
+
         for h, (p, c) in zip(self._handles, newpoints):
-            print 'place', h, p, c
             h.pos.x = p[0]
             h.pos.y = p[1]
             h.routing = c
