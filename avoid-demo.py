@@ -35,6 +35,8 @@ from gaphas.tool import PlacementTool, HandleTool
 from gaphas.segment import Segment
 import gaphas.guide
 from gaphas import state
+from gaphas.aspect import HandleInMotion, ItemHandleInMotion
+from gaphas.segment import Segment
 
 from gaphas import painter
 #painter.DEBUG_DRAW_BOUNDING_BOX = True
@@ -141,28 +143,66 @@ class MyLine(Line):
         conn = self._router_shape
         conn.setSourceEndpoint(i2c.transform_point(*endpoints[0]))
         conn.setDestEndpoint(i2c.transform_point(*endpoints[-1]))
+        checkpoints = []
+        for h in self._handles:
+            if getattr(h, 'checkpoint', False):
+                checkpoints.append(i2c.transform_point(*h.pos))
+        conn.routingCheckpoints = checkpoints
+        print 'set checkpoints', checkpoints
 
     def _router_shape_updated(self):
         try:
-            c2i = self.canvas.get_matrix_c2i(self)
-            ioutline = map(lambda xy: c2i.transform_point(*xy), self._router_shape.displayRoute)
-            self.update_endpoints(ioutline)
+            transform_point = self.canvas.get_matrix_c2i(self).transform_point
+            route = self._router_shape.displayRoute
+            checkpoints = self._router_shape.routingCheckpoints
+            newpoints = []
+            checkpoint_index = 0
+            print 'route', route
+            print 'checkpoints', checkpoints
+            for p in route:
+                if checkpoint_index < len(checkpoints) \
+                        and p == checkpoints[checkpoint_index]:
+                    newpoints.append((transform_point(*p), True))
+                    checkpoint_index += 1
+                else:
+                    newpoints.append((transform_point(*p), False))
+            print newpoints
+            self.update_endpoints(newpoints)
             self.canvas.request_update(self, matrix=False)
         except:
             logging.error('Unable to handle callback', exc_info=1)
 
     def update_endpoints(self, newpoints):
-        # TODO: set start and end point.
-        # Set points in the middle, split segments, etc.
-        print 'Update endpoints to', newpoints
+        """
+        Newpoints is a list of tuple (point, is_checkpoint).
+        """
+        #handles = self._handles
+        #p_index, h_index = 0, 0
+        #m = []
+        #while p_index < len(newp) and h_index < len(handles):
+        #    if newp[p_index][1]:
+        #        # is checkpoint
+        #        # loop until we find a 'not handle.routing'
+        #        pass
+        #    elif handles[h_index]: # is not routing
+        #print 'real handles:', handles
+        # Split newpoints segments where "checkpoint == True"
+        # Split handles where not h.routing
+        # For all segments, make sure the number of handles matches the newpoints
+        # TODO: How to determine where to split? Since connections will also move
+
         n_points = len(newpoints)
+        segm = Segment(self, None)
+        # Find only router points to remove and add
         while len(self._handles) < n_points:
-            self._handles.insert(1, gaphas.Handle())
+            h, ports = segm.split_segment(0, 2)
         while len(self._handles) > n_points:
-            del self._handles[1]
-        for h, p in zip(self._handles, newpoints):
+            segm.merge_segment(0)
+        for h, (p, c) in zip(self._handles, newpoints):
+            print 'place', h, p, c
             h.pos.x = p[0]
             h.pos.y = p[1]
+            h.routing = c
 
     def draw_head(self, context):
         cr = context.cairo
@@ -177,6 +217,23 @@ class MyLine(Line):
         cr.line_to(0, 0)
         cr.line_to(10, 10)
         cr.stroke()
+
+
+@HandleInMotion.when_type(MyLine)
+class MyLineHandleInMotion(ItemHandleInMotion):
+
+    def __init__(self, item, handle, view):
+        super(MyLineHandleInMotion, self).__init__(item, handle, view)
+
+    def move(self, pos):
+        print 'move', pos
+        sink = super(MyLineHandleInMotion, self).move(pos)
+
+        self.handle.checkpoint = True
+
+        self.item.request_update()
+
+        return sink
 
 
 def create_window(canvas, title, zoom=1.0):
