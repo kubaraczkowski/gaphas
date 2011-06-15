@@ -37,7 +37,7 @@ __version__ = "$Revision$"
 import sys
 
 import cairo
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 from gaphas.canvas import Context
 from gaphas.geometry import Rectangle
 from gaphas.geometry import distance_point_point_fast, distance_line_point
@@ -83,20 +83,20 @@ class Tool(object):
     # Map GDK events to tool methods
     EVENT_HANDLERS = {
         Gdk.EventType.BUTTON_PRESS: 'on_button_press',
-        Gdk.BUTTON_RELEASE: 'on_button_release',
-        Gdk._2BUTTON_PRESS: 'on_double_click',
-        Gdk._3BUTTON_PRESS: 'on_triple_click',
-        Gdk.MOTION_NOTIFY: 'on_motion_notify',
-        Gdk.KEY_PRESS: 'on_key_press',
-        Gdk.KEY_RELEASE: 'on_key_release',
-        Gdk.SCROLL: 'on_scroll',
+        Gdk.EventType.BUTTON_RELEASE: 'on_button_release',
+        Gdk.EventType._2BUTTON_PRESS: 'on_double_click',
+        Gdk.EventType._3BUTTON_PRESS: 'on_triple_click',
+        Gdk.EventType.MOTION_NOTIFY: 'on_motion_notify',
+        Gdk.EventType.KEY_PRESS: 'on_key_press',
+        Gdk.EventType.KEY_RELEASE: 'on_key_release',
+        Gdk.EventType.SCROLL: 'on_scroll',
         # Custom events:
         GRAB: 'on_grab',
         UNGRAB: 'on_ungrab',
     }
 
     # Those events force the tool to release the grabbed tool.
-    FORCE_UNGRAB_EVENTS = (Gdk._2BUTTON_PRESS, Gdk._3BUTTON_PRESS)
+    FORCE_UNGRAB_EVENTS = (Gdk.EventType._2BUTTON_PRESS, Gdk.EventType._3BUTTON_PRESS)
 
     def __init__(self, view=None):
         self.view = view
@@ -280,13 +280,13 @@ class ItemTool(Tool):
         
         # Deselect all items unless CTRL or SHIFT is pressed
         # or the item is already selected.
-        if not (event.get_state() & (Gdk.EventMask.CONTROL_MASK | Gdk.EventMask.SHIFT_MASK)
+        if not (event.get_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
                 or item in view.selected_items):
             del view.selected_items
 
         if item:
             if view.hovered_item in view.selected_items and \
-                    event.get_state() & Gdk.EventMask.CONTROL_MASK:
+                    event.get_state() & Gdk.ModifierType.CONTROL_MASK:
                 selection = Selection(item, view)
                 selection.unselect()
             else:
@@ -377,7 +377,7 @@ class HandleTool(Tool):
             # Deselect all items unless CTRL or SHIFT is pressed
             # or the item is already selected.
 ### TODO: duplicate from ItemTool
-            if not (event.get_state() & (Gdk.EventMask.CONTROL_MASK | Gdk.EventMask.SHIFT_MASK)
+            if not (event.get_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
                     or view.hovered_item in view.selected_items):
                 del view.selected_items
 ###/
@@ -466,7 +466,7 @@ class RubberbandTool(Tool):
         cr.rectangle(min(x0, x1), min(y0, y1), abs(x1 - x0), abs(y1 - y0))
         cr.fill()
 
-PAN_MASK = Gdk.EventMask.SHIFT_MASK | Gdk.ModifierType.MOD1_MASK | Gdk.EventMask.CONTROL_MASK
+PAN_MASK = Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.MOD1_MASK | Gdk.ModifierType.CONTROL_MASK
 PAN_VALUE = 0
 
 class PanTool(Tool):
@@ -493,7 +493,7 @@ class PanTool(Tool):
         return True
 
     def on_motion_notify(self, event):
-        if event.get_state() & Gdk.EventMask.BUTTON2_MASK:
+        if event.get_state() & Gdk.ModifierType.BUTTON2_MASK:
             view = self.view
             self.x1, self.y1 = event.x, event.y
             dx = self.x1 - self.x0
@@ -524,8 +524,8 @@ class PanTool(Tool):
         return True
 
 
-ZOOM_MASK  = Gdk.EventMask.CONTROL_MASK | Gdk.EventMask.SHIFT_MASK | Gdk.ModifierType.MOD1_MASK
-ZOOM_VALUE = Gdk.EventMask.CONTROL_MASK
+ZOOM_MASK  = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.MOD1_MASK
+ZOOM_VALUE = Gdk.ModifierType.CONTROL_MASK
 
 class ZoomTool(Tool):
     """
@@ -554,7 +554,7 @@ class ZoomTool(Tool):
 
     def on_motion_notify(self, event):
         if event.get_state() & ZOOM_MASK == ZOOM_VALUE \
-                and event.get_state() & Gdk.EventMask.BUTTON2_MASK:
+                and event.get_state() & Gdk.ModifierType.BUTTON2_MASK:
             view = self.view
             dy = event.y - self.y0
 
@@ -581,7 +581,7 @@ class ZoomTool(Tool):
             return True
 
     def on_scroll(self, event):
-        if event.get_state() & Gdk.EventMask.CONTROL_MASK:
+        if event.get_state() & Gdk.ModifierType.CONTROL_MASK:
             view = self.view
             sx = view._matrix[0]
             sy = view._matrix[3]
@@ -771,7 +771,7 @@ class ConnectHandleTool(HandleTool):
 #    def on_motion_notify(self, event):
 #        super(ConnectHandleTool, self).on_motion_notify(event)
 #        handle = self.grabbed_handle
-#        if handle and event.get_state() & Gdk.EventMask.BUTTON_PRESS_MASK:
+#        if handle and event.get_state() & Gdk.ModifierType.BUTTON_PRESS_MASK:
 #            if handle.connectable:
 #                self.glue(self.grabbed_item, handle, (event.x, event.y))
 #

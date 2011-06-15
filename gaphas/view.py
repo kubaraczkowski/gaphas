@@ -6,7 +6,7 @@ __version__ = "$Revision$"
 # $HeadURL$
 
 from gi.repository import GObject
-from gi.repository import Gtk
+from gi.repository import Gdk, Gtk
 from cairo import Matrix
 from canvas import Context
 from geometry import Rectangle
@@ -510,7 +510,7 @@ class GtkView(Gtk.DrawingArea, View):
 
         View.__init__(self, canvas)
 
-        self.set_flags(Gtk.CAN_FOCUS)
+        self.set_can_focus(True)
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK
                         | Gdk.EventMask.BUTTON_RELEASE_MASK
                         | Gdk.EventMask.POINTER_MOTION_MASK
@@ -528,7 +528,7 @@ class GtkView(Gtk.DrawingArea, View):
         self._set_tool(DefaultTool())
         
         # Set background to white.
-        self.modify_bg(Gtk.StateType.NORMAL, Gdk.color_parse('#FFF'))
+        self.modify_bg(Gtk.StateType.NORMAL, Gdk.color_parse('#FFF')[1])
 
 
     def emit(self, *args, **kwargs):
@@ -894,7 +894,8 @@ class GtkView(Gtk.DrawingArea, View):
 #   GtkWarning: gtk_scrolled_window_add(): cannot add non scrollable widget
 #   use gtk_scrolled_window_add_with_viewport() instead
 
-GtkView.set_set_scroll_adjustments_signal("set-scroll-adjustments")
+# TODO: Implement Gtk.Scrollable
+#GtkView.set_set_scroll_adjustments_signal("set-scroll-adjustments")
 
 
 # vim: sw=4:et:ai
