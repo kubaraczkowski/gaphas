@@ -468,6 +468,7 @@ class View(object):
 
 
 class GtkView(Gtk.DrawingArea, View):
+#class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
     # NOTE: Inherit from GTK+ class first, otherwise BusErrors may occur!
     """
     GTK+ widget for rendering a canvas.Canvas to a screen.
@@ -485,8 +486,8 @@ class GtkView(Gtk.DrawingArea, View):
     
     # Signals: emited after the change takes effect.
     __gsignals__ = {
-        'set-scroll-adjustments': (GObject.SignalFlags.RUN_LAST, None,
-                      (Gtk.Adjustment, Gtk.Adjustment)),
+#        'set-scroll-adjustments': (GObject.SignalFlags.RUN_LAST, None,
+#                      (Gtk.Adjustment, Gtk.Adjustment)),
         'dropzone-changed': (GObject.SignalFlags.RUN_LAST, None,
                       (GObject.TYPE_PYOBJECT,)),
         'hover-changed': (GObject.SignalFlags.RUN_LAST, None,
@@ -501,6 +502,24 @@ class GtkView(Gtk.DrawingArea, View):
                       ())
     }
 
+    __gproperties__ = {
+#        'hadjustment': 'override',
+#        'vadjustment': 'override',
+#        'hscroll-policy': 'override',
+#        'vscroll-policy': 'override'
+        'hadjustment': (Gtk.Adjustment,
+                        'hadjustment prop', 
+                        'hadjustment prop', 
+                        GObject.PARAM_READWRITE),
+        'vadjustment': (Gtk.Adjustment,
+                        'vadjustment prop', 
+                        'vadjustment prop', 
+                        GObject.PARAM_READWRITE),
+#        'hscroll-policy': (Gtk.ScrollablePolicy,
+#                        'GtkScrollable.hscroll-policy',
+#                        '',
+#                        GObject.PARAM_READWRITE),
+    }
 
     def __init__(self, canvas=None, hadjustment=None, vadjustment=None):
         GObject.GObject.__init__(self)
@@ -523,13 +542,33 @@ class GtkView(Gtk.DrawingArea, View):
         self._hadjustment_handler_id = None
         self._vadjustment_handler_id = None
 
-        self.emit('set-scroll-adjustments', hadjustment, vadjustment)
+        self.do_set_scroll_adjustments(hadjustment, vadjustment)
 
         self._set_tool(DefaultTool())
         
         # Set background to white.
         self.modify_bg(Gtk.StateType.NORMAL, Gdk.color_parse('#FFF')[1])
 
+    def do_set_properties(self, pspec, value):
+        if pspec.name == 'hadjustment':
+            self.do_set_scroll_adjustments(self._hadjustment, value)
+        elif pspec.name == 'vadjustment':
+            self.do_set_scroll_adjustments(value, self._vadjustment)
+        else:
+            raise AttributeError, 'Unknown property %s' % pspec.name
+
+    def do_get_properties(self, pspec, value):
+        if pspec.name == 'hadjustment':
+            return self._hadjustment
+        elif pspec.name == 'vadjustment':
+            return self._vadjustment
+        else:
+            raise AttributeError, 'Unknown property %s' % pspec.name
+
+    def _set_hadjustment(self, adj):
+        self._hadjustment = adj
+
+    hadjustment = GObject.property(getter=lambda s: s._hadjustment, setter=_set_hadjustment)
 
     def emit(self, *args, **kwargs):
         """
@@ -608,7 +647,7 @@ class GtkView(Gtk.DrawingArea, View):
     @async(single=True)
     def update_adjustments(self, allocation=None):
         if not allocation:
-            allocation = self.allocation
+            allocation = self.get_allocation()
 
         hadjustment = self._hadjustment
         vadjustment = self._vadjustment
@@ -626,24 +665,24 @@ class GtkView(Gtk.DrawingArea, View):
             u = c + v
 
         # set lower limits
-        hadjustment.lower, vadjustment.lower = u.x, u.y
+        hadjustment.props.lower, vadjustment.props.lower = u.x, u.y
 
         # set upper limits
-        hadjustment.upper, vadjustment.upper = u.x1, u.y1
+        hadjustment.props.upper, vadjustment.props.upper = u.x1, u.y1
 
         # set page size
         aw, ah = allocation.width, allocation.height
-        hadjustment.page_size = aw
-        vadjustment.page_size = ah
+        hadjustment.props.page_size = aw
+        vadjustment.props.page_size = ah
 
         # set increments
-        hadjustment.page_increment = aw
-        hadjustment.step_increment = aw / 10
-        vadjustment.page_increment = ah
-        vadjustment.step_increment = ah / 10
+        hadjustment.props.page_increment = aw
+        hadjustment.props.step_increment = aw / 10
+        vadjustment.props.page_increment = ah
+        vadjustment.props.step_increment = ah / 10
 
         # set position
-        if v.x != hadjustment.value or v.y != vadjustment.value:
+        if v.x != hadjustment.props.value or v.y != vadjustment.props.value:
             hadjustment.value, vadjustment.value = v.x, v.y
 
 
@@ -685,7 +724,7 @@ class GtkView(Gtk.DrawingArea, View):
         """
         Redraw the entire view.
         """
-        a = self.allocation
+        a = self.get_allocation()
         super(GtkView, self).queue_draw_area(0, 0, a.width, a.height)
 
 
@@ -723,7 +762,7 @@ class GtkView(Gtk.DrawingArea, View):
         """
         Update view status according to the items updated by the canvas.
         """
-        if not self.window: return
+        if not self.get_window(): return
 
         dirty_items = self._dirty_items
         dirty_matrix_items = self._dirty_matrix_items
@@ -765,7 +804,7 @@ class GtkView(Gtk.DrawingArea, View):
         """
         Update bounding box is not necessary.
         """
-        cr = self.window.cairo_create()
+        cr = self.get_window().cairo_create()
 
         cr.save()
         cr.rectangle(0, 0, 0, 0)
@@ -811,25 +850,26 @@ class GtkView(Gtk.DrawingArea, View):
 
         Gtk.DrawingArea.do_unrealize(self)
 
-    def do_expose_event(self, event):
+    def do_draw(self, cr):
+    #def do_expose_event(self, event):
         """
         Render canvas to the screen.
         """
         if not self._canvas:
             return
 
-        area = event.area
-        x, y, w, h = area.x, area.y, area.width, area.height
-        cr = self.window.cairo_create()
+        #area = event.area
+        #x, y, w, h = area.x, area.y, area.width, area.height
+        #cr = self.window.cairo_create()
 
         # Draw no more than nessesary.
-        cr.rectangle(x, y, w, h)
-        cr.clip()
+        #cr.rectangle(x, y, w, h)
+        #cr.clip()
 
-        area = Rectangle(x, y, width=w, height=h)
+        #area = Rectangle(x, y, width=w, height=h)
         self._painter.paint(Context(cairo=cr,
                                     items=self.get_items_in_rectangle(area),
-                                    area=area))
+                                    area=None))
 
         if DEBUG_DRAW_BOUNDING_BOX:
             cr.save()
