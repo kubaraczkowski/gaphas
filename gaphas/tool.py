@@ -146,6 +146,8 @@ class ToolChain(object):
     is received. Should make sure this doesn't end up in dangling states.
     """
 
+    EVENT_HANDLERS = Tool.EVENT_HANDLERS
+
     # Those events force the tool to release the grabbed tool.
     FORCE_UNGRAB_EVENTS = (gtk.gdk._2BUTTON_PRESS, gtk.gdk._3BUTTON_PRESS)
 
@@ -199,7 +201,7 @@ class ToolChain(object):
         If a tool is returning True on a button press event, the motion and
         button release events are also passed to this 
         """
-        handler = Tool.EVENT_HANDLERS.get(event.type)
+        handler = self.EVENT_HANDLERS.get(event.type)
         
         self.validate_grabbed_tool(event)
 

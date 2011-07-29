@@ -162,8 +162,8 @@ class FatLine(Item):
 
         self._ports.append(LinePort(h1.pos, h2.pos))
 
-        self.constraint(vertical=(h1.pos, h2.pos))
-        self.constraint(above=(h1.pos, h2.pos), delta=20)
+        #self.constraint(vertical=(h1.pos, h2.pos))
+        #self.constraint(above=(h1.pos, h2.pos), delta=20)
 
 
     def _set_height(self, height):

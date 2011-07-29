@@ -48,7 +48,6 @@ class Item(object):
         self._canvas = None
         self._matrix = Matrix()
         self._handles = []
-        self._constraints = []
         self._ports = []
 
         # used by gaphas.canvas.Canvas to hold conversion matrices
@@ -76,18 +75,12 @@ class Item(object):
     canvas = reversible_property(lambda s: s._canvas, _set_canvas,
                 doc="Canvas owning this item")
 
-    constraints = property(lambda s: s._constraints,
-                doc="Item constraints")
-
     def setup_canvas(self):
         """
         Called when the canvas is set for the item.
         This method can be used to create constraints.
         """
-        add = self.canvas.solver.add_constraint
-        for c in self._constraints:
-            add(c)
-
+        pass
 
     def teardown_canvas(self):
         """
@@ -95,10 +88,6 @@ class Item(object):
         This method can be used to dispose constraints.
         """
         self.canvas.disconnect_item(self)
-
-        remove = self.canvas.solver.remove_constraint
-        for c in self._constraints:
-            remove(c)
 
 
     @observed
@@ -215,65 +204,6 @@ class Item(object):
         pass
 
 
-    def constraint(self,
-            horizontal=None,
-            vertical=None,
-            left_of=None,
-            above=None,
-            line=None,
-            delta=0.0,
-            align=None):
-        """
-        Utility (factory) method to create item's internal constraint between
-        two positions or between a position and a line.
-
-        Position is a tuple of coordinates, i.e. ``(2, 4)``.
-
-        Line is a tuple of positions, i.e. ``((2, 3), (4, 2))``.
-
-        This method shall not be used to create constraints between
-        two different items.
-
-        Created constraint is returned.
-
-        :Parameters:
-         horizontal=(p1, p2)
-            Keep positions ``p1`` and ``p2`` aligned horizontally.
-         vertical=(p1, p2)
-            Keep positions ``p1`` and ``p2`` aligned vertically.
-         left_of=(p1, p2)
-            Keep position ``p1`` on the left side of position ``p2``.
-         above=(p1, p2)
-            Keep position ``p1`` above position ``p2``.
-         line=(p, l)
-            Keep position ``p`` on line ``l``.
-        """
-        cc = None # created constraint
-        if horizontal:
-            p1, p2 = horizontal
-            cc = EqualsConstraint(p1[1], p2[1], delta)
-        elif vertical:
-            p1, p2 = vertical
-            cc = EqualsConstraint(p1[0], p2[0], delta)
-        elif left_of:
-            p1, p2 = left_of
-            cc = LessThanConstraint(p1[0], p2[0], delta)
-        elif above:
-            p1, p2 = above
-            cc = LessThanConstraint(p1[1], p2[1], delta)
-        elif line:
-            pos, l = line
-            if align is None:
-                cc = LineConstraint(line=l, point=pos)
-            else:
-                cc = LineAlignConstraint(line=l, point=pos, align=align, delta=delta)
-        else:
-            raise ValueError('Constraint incorrectly specified')
-        assert cc is not None
-        self._constraints.append(cc)
-        return cc
-
-
     def __getstate__(self):
         """
         Persist all, but calculated values (``_matrix_?2?``).
@@ -317,6 +247,7 @@ class Element(Item):
     def __init__(self, width=10, height=10):
         super(Element, self).__init__()
         self._handles = [ h(strength=VERY_STRONG) for h in [Handle]*4 ]
+        self._constraints = []
 
         handles = self._handles
         h_nw = handles[NW]
@@ -348,11 +279,31 @@ class Element(Item):
 
 
     def setup_canvas(self):
+        """
+        Called when the canvas is set for the item.
+        This method can be used to create constraints.
+        """
         super(Element, self).setup_canvas()
+
+        add = self.canvas.solver.add_constraint
+        for c in self._constraints:
+            add(c)
 
         # Trigger solver to honour width/height by SE handle pos
         self._handles[SE].pos.x.dirty()
         self._handles[SE].pos.y.dirty()
+
+    def teardown_canvas(self):
+        """
+        Called when the canvas is unset for the item.
+        This method can be used to dispose constraints.
+        """
+        super(Element, self).teardown_canvas()
+
+        remove = self.canvas.solver.remove_constraint
+        for c in self._constraints:
+            remove(c)
+
 
     def _set_width(self, width):
         """
@@ -449,6 +400,65 @@ class Element(Item):
         h = self._handles
         pnw, pse = h[NW].pos, h[SE].pos
         return distance_rectangle_point(map(float, (pnw.x, pnw.y, pse.x, pse.y)), pos)
+
+    def constraint(self,
+            horizontal=None,
+            vertical=None,
+            left_of=None,
+            above=None,
+            line=None,
+            delta=0.0,
+            align=None):
+        """
+        Utility (factory) method to create item's internal constraint between
+        two positions or between a position and a line.
+
+        Position is a tuple of coordinates, i.e. ``(2, 4)``.
+
+        Line is a tuple of positions, i.e. ``((2, 3), (4, 2))``.
+
+        This method shall not be used to create constraints between
+        two different items.
+
+        Created constraint is returned.
+
+        :Parameters:
+         horizontal=(p1, p2)
+            Keep positions ``p1`` and ``p2`` aligned horizontally.
+         vertical=(p1, p2)
+            Keep positions ``p1`` and ``p2`` aligned vertically.
+         left_of=(p1, p2)
+            Keep position ``p1`` on the left side of position ``p2``.
+         above=(p1, p2)
+            Keep position ``p1`` above position ``p2``.
+         line=(p, l)
+            Keep position ``p`` on line ``l``.
+        """
+        cc = None # created constraint
+        if horizontal:
+            p1, p2 = horizontal
+            cc = EqualsConstraint(p1[1], p2[1], delta)
+        elif vertical:
+            p1, p2 = vertical
+            cc = EqualsConstraint(p1[0], p2[0], delta)
+        elif left_of:
+            p1, p2 = left_of
+            cc = LessThanConstraint(p1[0], p2[0], delta)
+        elif above:
+            p1, p2 = above
+            cc = LessThanConstraint(p1[1], p2[1], delta)
+        elif line:
+            pos, l = line
+            if align is None:
+                cc = LineConstraint(line=l, point=pos)
+            else:
+                cc = LineAlignConstraint(line=l, point=pos, align=align, delta=delta)
+        else:
+            raise ValueError('Constraint incorrectly specified')
+        assert cc is not None
+        self._constraints.append(cc)
+        return cc
+
 
 
 class Line(Item):
