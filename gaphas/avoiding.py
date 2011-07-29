@@ -4,6 +4,7 @@ from gaphas import Canvas
 from gaphas.geometry import Rectangle
 from gaphas.aspect import HandleInMotion, ItemHandleInMotion
 from gaphas.segment import Segment
+from state import observed, reversible_pair
 
 import libavoid
 
@@ -28,6 +29,42 @@ class AvoidCanvas(Canvas):
             item.router_update()
 
         self.router.processTransaction()
+
+# Set constraints by setting the connection end points
+
+    @observed
+    def connect_item(self, item, handle, connected, port, constraint=None, callback=None):
+        if self.get_connection(handle):
+            raise ConnectionError('Handle %r of item %r is already connected' % (handle, item))
+
+        self._connections.insert(item, handle, connected, port, constraint, callback)
+
+        if handle is item.handles()[0]:
+            item._router_shape.setSourceEndPoint(connected._router_shape)
+        else:
+            item._router_shape.setDestEndPoint(connected._router_shape)
+
+
+    @observed
+    def _disconnect_item(self, item, handle, connected, port, constraint, callback):
+        """
+        Perform the real disconnect.
+        """
+        # Same arguments as connect_item, makes reverser easy
+        if handle is item.handles()[0]:
+            print 'Set shape on head'
+            item._router_shape.setSourceEndPoint(None)
+        else:
+            print 'Set shape on tail'
+            item._router_shape.setDestEndPoint(None)
+
+        if callback:
+            callback()
+
+        self._connections.delete(item, handle, connected, port, constraint, callback)
+
+    reversible_pair(connect_item, _disconnect_item)
+
 
 
 class AvoidElementMixin(object):
@@ -77,8 +114,10 @@ class AvoidLineMixin(object):
         endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
         transform_point = self.canvas.get_matrix_i2c(self).transform_point
         conn = self._router_shape
-        conn.setSourceEndpoint(transform_point(*endpoints[0]))
-        conn.setDestEndpoint(transform_point(*endpoints[-1]))
+        if not isinstance(conn.sourceEndpoint, libavoid.ShapeRef):
+            conn.setSourceEndpoint(transform_point(*endpoints[0]))
+        if not isinstance(conn.destEndpoint, libavoid.ShapeRef):
+            conn.setDestEndpoint(transform_point(*endpoints[-1]))
         checkpoints = []
         for h in self._handles[1:-1]:
             if getattr(h, 'checkpoint', False):

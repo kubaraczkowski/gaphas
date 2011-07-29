@@ -369,6 +369,21 @@ def main():
 
     create_window(c, 'Line avoiding demo')
 
+
+    box = MyBox()
+    line = MyLine()
+
+    c.add(box)
+    box.matrix.translate(100, 100)
+    #box.width = 100
+    #box.height = 100
+
+    c.add(line)
+    print 'box shape', box._router_shape, box._router_shape.router
+    box._router_shape.addConnectionPin(15, 0.2, 0.2) 
+    print 'line shape', line._router_shape
+    line._router_shape.setSourceEndpoint( box._router_shape)
+
     #state.subscribers.add(print_handler)
 
     ##
