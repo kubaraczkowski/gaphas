@@ -510,7 +510,7 @@ class GtkView(gtk.DrawingArea, View):
 
         View.__init__(self, canvas)
 
-        self.set_flags(gtk.CAN_FOCUS)
+        self.set_can_focus(True)
         self.add_events(gtk.gdk.BUTTON_PRESS_MASK
                         | gtk.gdk.BUTTON_RELEASE_MASK
                         | gtk.gdk.POINTER_MOTION_MASK
@@ -523,7 +523,8 @@ class GtkView(gtk.DrawingArea, View):
         self._hadjustment_handler_id = None
         self._vadjustment_handler_id = None
 
-        self.emit('set-scroll-adjustments', hadjustment, vadjustment)
+        #self.emit('set-scroll-adjustments', hadjustment, vadjustment)
+        self.do_set_scroll_adjustments(hadjustment, vadjustment)
 
         self._set_tool(DefaultTool())
         
