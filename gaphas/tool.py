@@ -95,9 +95,6 @@ class Tool(object):
         UNGRAB: 'on_ungrab',
     }
 
-    # Those events force the tool to release the grabbed tool.
-    FORCE_UNGRAB_EVENTS = (gtk.gdk._2BUTTON_PRESS, gtk.gdk._3BUTTON_PRESS)
-
     def __init__(self, view=None):
         self.view = view
 
@@ -140,7 +137,7 @@ class Tool(object):
 
 
 
-class ToolChain(Tool):
+class ToolChain(object):
     """
     A ToolChain can be used to chain tools together, for example HoverTool,
     HandleTool, SelectionTool.
@@ -149,8 +146,11 @@ class ToolChain(Tool):
     is received. Should make sure this doesn't end up in dangling states.
     """
 
+    # Those events force the tool to release the grabbed tool.
+    FORCE_UNGRAB_EVENTS = (gtk.gdk._2BUTTON_PRESS, gtk.gdk._3BUTTON_PRESS)
+
     def __init__(self, view=None):
-        super(ToolChain, self).__init__(view)
+        self.view = view
         self._tools = []
         self._grabbed_tool = None
 
@@ -199,7 +199,7 @@ class ToolChain(Tool):
         If a tool is returning True on a button press event, the motion and
         button release events are also passed to this 
         """
-        handler = self.EVENT_HANDLERS.get(event.type)
+        handler = Tool.EVENT_HANDLERS.get(event.type)
         
         self.validate_grabbed_tool(event)
 
