@@ -37,7 +37,7 @@ import gaphas.guide
 from gaphas import state
 from gaphas.aspect import HandleInMotion, ItemHandleInMotion
 from gaphas.segment import Segment
-from gaphas.avoiding import AvoidCanvas, AvoidLineMixin, AvoidElementMixin
+from gaphas.avoiding import AvoidCanvas, AvoidLine, AvoidElementMixin
 
 from gaphas import painter
 #painter.DEBUG_DRAW_BOUNDING_BOX = True
@@ -57,7 +57,7 @@ def undo_handler(event):
 
 def factory(view, cls):
     """
-    Simple canvas item factory.
+    Simple canvas item factory, used when placing items on the canvas.
     """
     def wrapper():
         item = cls()
@@ -71,26 +71,26 @@ class MyBox(AvoidElementMixin, Box):
     """
     pass
 
-class MyLine(AvoidLineMixin, Line):
+class MyLine(AvoidLine):
     """Line with experimental connection protocol.
     """
     def __init__(self):
         super(MyLine, self).__init__()
         self.fuzziness = 2
 
-    def draw_head(self, context):
-        cr = context.cairo
-        cr.move_to(0, 0)
-        cr.line_to(10, 10)
-        cr.stroke()
-        # Start point for the line to the next handle
-        cr.move_to(0, 0)
-
-    def draw_tail(self, context):
-        cr = context.cairo
-        cr.line_to(0, 0)
-        cr.line_to(10, 10)
-        cr.stroke()
+#    def draw_head(self, context):
+#        cr = context.cairo
+#        cr.move_to(0, 0)
+#        cr.line_to(10, 10)
+#        cr.stroke()
+#        # Start point for the line to the next handle
+#        cr.move_to(0, 0)
+#
+#    def draw_tail(self, context):
+#        cr = context.cairo
+#        cr.line_to(0, 0)
+#        cr.line_to(10, 10)
+#        cr.stroke()
 
 
 def create_window(canvas, title, zoom=1.0):
@@ -379,10 +379,18 @@ def main():
     #box.height = 100
 
     c.add(line)
-    print 'box shape', box._router_shape, box._router_shape.router
-    box._router_shape.addConnectionPin(15, 0.2, 0.2) 
-    print 'line shape', line._router_shape
-    line._router_shape.setSourceEndpoint( box._router_shape)
+    j = libavoid.JunctionRef(c.router, (100, 100))
+    
+    #print 'box shape', box._router_shape, box._router_shape.router
+    #box._router_shape.addConnectionPin(15, 0.2, 0.2) 
+    print 'line shape', line._router_conns
+    #line._router_conns[0].setSourceEndpoint( box._router_shape)
+    line._router_conns[0].setDestEndpoint( j )
+
+    line2 = MyLine()
+    line2.matrix.translate(50, 0)
+    c.add(line2)
+    line2._router_conns[0].setDestEndpoint( j )
 
     #state.subscribers.add(print_handler)
 

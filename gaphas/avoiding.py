@@ -4,11 +4,13 @@ Elements with support for libavoid, the automatic line router.
 
 import logging
 from gaphas import Canvas
-from gaphas.geometry import Rectangle
+from gaphas.geometry import Rectangle, distance_line_point
 from gaphas.item import Item
+from gaphas.connector import Handle
 from gaphas.aspect import HandleInMotion, ItemHandleInMotion
 from gaphas.segment import Segment
-from state import observed, reversible_pair
+from state import observed, reversible_pair, reversible_property
+
 
 import libavoid
 
@@ -108,6 +110,11 @@ class AvoidElementMixin(object):
 
 
 class AvoidLine(Item):
+    """
+    An implementation of a line backed by a libavoid.ConnRef.
+
+    One ConnRef is created per line segment.
+    """
 
     def __init__(self):
         super(AvoidLine, self).__init__()
@@ -119,6 +126,18 @@ class AvoidLine(Item):
         self._line_width = 2
         self._fuzziness = 0
         self._head_angle = self._tail_angle = 0
+
+    @observed
+    def _set_line_width(self, line_width):
+        self._line_width = line_width
+
+    line_width = reversible_property(lambda s: s._line_width, _set_line_width)
+
+    @observed
+    def _set_fuzziness(self, fuzziness):
+        self._fuzziness = fuzziness
+
+    fuzziness = reversible_property(lambda s: s._fuzziness, _set_fuzziness)
 
     def opposite(self, handle):
         """
@@ -138,7 +157,8 @@ class AvoidLine(Item):
         self._router_conns[0].setCallback(self._router_conns_updated)
 
     def teardown_canvas(self):
-        self.canvas.router.deleteConnector(self._router_shape)
+        for conn in self._router_conns:
+            self.canvas.router.deleteConnector(conn)
         super(AvoidLine, self).teardown_canvas()
 
     def pre_update(self, context):
@@ -148,12 +168,13 @@ class AvoidLine(Item):
         """
         """
         super(AvoidLine, self).post_update(context)
-        h0, h1 = self._handles[:2]
-        p0, p1 = h0.pos, h1.pos
-        self._head_angle = atan2(p1.y - p0.y, p1.x - p0.x)
-        h1, h0 = self._handles[-2:]
-        p1, p0 = h1.pos, h0.pos
-        self._tail_angle = atan2(p1.y - p0.y, p1.x - p0.x)
+        # TODO: base on line routing
+        #h0, h1 = self._handles[:2]
+        #p0, p1 = h0.pos, h1.pos
+        #self._head_angle = atan2(p1.y - p0.y, p1.x - p0.x)
+        #h1, h0 = self._handles[-2:]
+        #p1, p0 = h1.pos, h0.pos
+        #self._tail_angle = atan2(p1.y - p0.y, p1.x - p0.x)
 
     def closest_segment(self, pos):
         """
@@ -166,9 +187,9 @@ class AvoidLine(Item):
         >>> a.closest_segment((4, 5))
         (0.70710678118654757, (4.5, 4.5), 0)
         """
-        for conn in self._shape_conns:
-            hpos = conn.displayRoute
-            self.canvas.
+        for conn in self._router_conns:
+            hpos = self.points_c2i(*conn.displayRoute)
+            #self.canvas.
             # create a list of (distance, point_on_line) tuples:
             distances = map(distance_line_point, hpos[:-1], hpos[1:], [pos] * (len(hpos) - 1))
             distances, pols = zip(*distances)
@@ -235,33 +256,21 @@ class AvoidLine(Item):
         # use canvasprojection?
         endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
         transform_point = self.canvas.get_matrix_i2c(self).transform_point
-        conn = self._router_shape
-        if not isinstance(conn.sourceEndpoint, libavoid.ShapeRef):
-            conn.setSourceEndpoint(transform_point(*endpoints[0]))
-        if not isinstance(conn.destEndpoint, libavoid.ShapeRef):
-            conn.setDestEndpoint(transform_point(*endpoints[-1]))
+        conns = self._router_conns
+        # if not isinstance(conns[0].sourceEndpoint, libavoid.ShapeRef):
+        conns[0].setSourceEndpoint(transform_point(*endpoints[0]))
+        # if not isinstance(conns[-1].destEndpoint, libavoid.ShapeRef):
+        conns[-1].setDestEndpoint(transform_point(*endpoints[-1]))
         checkpoints = []
         for h in self._handles[1:-1]:
-            if getattr(h, 'checkpoint', False):
-                checkpoints.append(transform_point(*h.pos))
-        conn.routingCheckpoints = checkpoints
+            checkpoints.append(transform_point(*h.pos))
+        conns[0].routingCheckpoints = checkpoints
 
     def _router_conns_updated(self):
         try:
-            transform_point = self.canvas.get_matrix_c2i(self).transform_point
-            route = self._router_shape.displayRoute
-            checkpoints = self._router_shape.routingCheckpoints
-            newpoints = []
-            checkpoint_index = 0
-            for p in route:
-                if checkpoint_index < len(checkpoints) \
-                        and p == checkpoints[checkpoint_index]:
-                    newpoints.append((transform_point(*p), True))
-                    checkpoint_index += 1
-                else:
-                    newpoints.append((transform_point(*p), False))
-            self.update_endpoints(newpoints)
-            self.canvas.request_update(self, matrix=False)
+            # what to do here? redraw?
+            #self.request_update()
+            pass
         except:
             logging.error('Unable to handle callback', exc_info=1)
 
@@ -285,21 +294,22 @@ class AvoidLine(Item):
             h.pos.y = p[1]
             h.routing = c
 
+# TODO: connect to shape: create unique Pin, connect to that.
+# TODO: create new line splitting handler
+# TODO: connector: create new line segment on creation, merge one on disconnect
 
-@HandleInMotion.when_type(AvoidLineMixin)
-class MyLineHandleInMotion(ItemHandleInMotion):
-
-    def __init__(self, item, handle, view):
-        super(MyLineHandleInMotion, self).__init__(item, handle, view)
-
-    def move(self, pos):
-        sink = super(MyLineHandleInMotion, self).move(pos)
-
-        self.handle.checkpoint = True
-
-        self.item.request_update()
-
-        return sink
+#@HandleInMotion.when_type(AvoidLine)
+#class MyLineHandleInMotion(ItemHandleInMotion):
+#
+#    def __init__(self, item, handle, view):
+#        super(MyLineHandleInMotion, self).__init__(item, handle, view)
+#
+#    def move(self, pos):
+#        sink = super(MyLineHandleInMotion, self).move(pos)
+#
+#        self.item.request_update()
+#
+#        return sink
 
 
 # vim: sw=4:et:ai

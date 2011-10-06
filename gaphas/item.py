@@ -627,7 +627,8 @@ class Line(Item):
 
     def _update_ports(self):
         """
-        Update line ports.
+        Update line ports. This destroys all previously created ports and
+        should only be used when initializing the line.
         """
         assert len(self._handles) >= 2, 'Not enough segments'
         self._ports = []
@@ -668,7 +669,7 @@ class Line(Item):
 
         >>> a = Line()
         >>> a.closest_segment((4, 5))
-        (0.70710678118654757, (4.5, 4.5), 0)
+        (0.7071067811865476, (4.5, 4.5), 0)
         """
         h = self._handles
         hpos = map(getattr, h, ['pos'] * len(h))
