@@ -285,9 +285,7 @@ class Element(Item):
         """
         super(Element, self).setup_canvas()
 
-        add = self.canvas.solver.add_constraint
-        for c in self._constraints:
-            add(c)
+        map(self.canvas.solver.add_constraint, self._constraints)
 
         # Trigger solver to honour width/height by SE handle pos
         self._handles[SE].pos.x.dirty()
@@ -300,9 +298,7 @@ class Element(Item):
         """
         super(Element, self).teardown_canvas()
 
-        remove = self.canvas.solver.remove_constraint
-        for c in self._constraints:
-            remove(c)
+        map(self.canvas.solver.remove_constraint, self._constraints)
 
 
     def _set_width(self, width):

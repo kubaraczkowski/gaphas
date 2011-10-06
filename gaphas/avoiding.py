@@ -1,13 +1,25 @@
+"""
+Elements with support for libavoid, the automatic line router.
+"""
 
 import logging
 from gaphas import Canvas
 from gaphas.geometry import Rectangle
+from gaphas.item import Item
 from gaphas.aspect import HandleInMotion, ItemHandleInMotion
 from gaphas.segment import Segment
 from state import observed, reversible_pair
 
 import libavoid
 
+class AvoidSolver(object):
+
+    def __init__(self):
+        pass
+
+    # implement solver methods
+    # allow to make the right kind of constraint
+    
 class AvoidCanvas(Canvas):
 
     def __init__(self):
@@ -95,22 +107,132 @@ class AvoidElementMixin(object):
         return ((xMax, yMin), (xMax, yMax), (xMin, yMax), (xMin, yMin))
 
 
-class AvoidLineMixin(object):
+class AvoidLine(Item):
+
+    def __init__(self):
+        super(AvoidLine, self).__init__()
+        # Handles only for endpoints and checkpoints
+        self._handles = [Handle(connectable=True), Handle((10, 10), connectable=True)]
+        self._ports = []
+        # TODO: self._update_ports()
+
+        self._line_width = 2
+        self._fuzziness = 0
+        self._head_angle = self._tail_angle = 0
+
+    def opposite(self, handle):
+        """
+        Given the handle of one end of the line, return the other end.
+        """
+        handles = self._handles
+        if handle is handles[0]:
+            return handles[-1]
+        elif handle is handles[-1]:
+            return handles[0]
+        else:
+            raise KeyError('Handle is not an end handle')
 
     def setup_canvas(self):
-        super(AvoidLineMixin, self).setup_canvas()
-        self._router_shape = libavoid.ConnRef(self.canvas.router)
-        self._router_shape.setCallback(self._router_shape_updated)
+        super(AvoidLine, self).setup_canvas()
+        self._router_conns = [ libavoid.ConnRef(self.canvas.router) ]
+        self._router_conns[0].setCallback(self._router_conns_updated)
 
     def teardown_canvas(self):
         self.canvas.router.deleteConnector(self._router_shape)
-        super(AvoidLineMixin, self).teardown_canvas()
+        super(AvoidLine, self).teardown_canvas()
 
     def pre_update(self, context):
-        super(AvoidLineMixin, self).pre_update(context)
+        super(AvoidLine, self).pre_update(context)
+
+    def post_update(self, context):
+        """
+        """
+        super(AvoidLine, self).post_update(context)
+        h0, h1 = self._handles[:2]
+        p0, p1 = h0.pos, h1.pos
+        self._head_angle = atan2(p1.y - p0.y, p1.x - p0.x)
+        h1, h0 = self._handles[-2:]
+        p1, p0 = h1.pos, h0.pos
+        self._tail_angle = atan2(p1.y - p0.y, p1.x - p0.x)
+
+    def closest_segment(self, pos):
+        """
+        Obtain a tuple (distance, point_on_line, segment).
+        Distance is the distance from point to the closest line segment 
+        Point_on_line is the reflection of the point on the line.
+        Segment is the line segment closest to (x, y)
+
+        >>> a = Line()
+        >>> a.closest_segment((4, 5))
+        (0.70710678118654757, (4.5, 4.5), 0)
+        """
+        for conn in self._shape_conns:
+            hpos = conn.displayRoute
+            self.canvas.
+            # create a list of (distance, point_on_line) tuples:
+            distances = map(distance_line_point, hpos[:-1], hpos[1:], [pos] * (len(hpos) - 1))
+            distances, pols = zip(*distances)
+        return reduce(min, zip(distances, pols, range(len(distances))))
+
+    def point(self, pos):
+        """
+        >>> a = Line()
+        >>> a.handles()[1].pos = 25, 5
+        >>> a._handles.append(a._create_handle((30, 30)))
+        >>> a.point((-1, 0))
+        1.0
+        >>> '%.3f' % a.point((5, 4))
+        '2.942'
+        >>> '%.3f' % a.point((29, 29))
+        '0.784'
+        """
+        distance, point, segment = self.closest_segment(pos)
+        return max(0, distance - self.fuzziness)
+
+    def draw_head(self, context):
+        """
+        Default head drawer: move cursor to the first handle.
+        """
+        context.cairo.move_to(0, 0)
+
+    def draw_tail(self, context):
+        """
+        Default tail drawer: draw line to the last handle.
+        """
+        context.cairo.line_to(0, 0)
+
+
+    def draw(self, context):
+        """
+        Draw the line itself.
+        See Item.draw(context).
+        """
+        def draw_line_end(pos, angle, draw):
+            cr = context.cairo
+            cr.save()
+            try:
+                cr.translate(*pos)
+                cr.rotate(angle)
+                draw(context)
+            finally:
+                cr.restore()
+
+        cr = context.cairo
+        cr.set_line_width(self.line_width)
+        draw_line_end(self._handles[0].pos, self._head_angle, self.draw_head)
+        for h in self._handles[1:-1]:
+            cr.line_to(*h.pos)
+        draw_line_end(self._handles[-1].pos, self._tail_angle, self.draw_tail)
+        cr.stroke()
+
+
+    def points_c2i(self, *points):
+        transform_point = self.canvas.get_matrix_c2i(self).transform_point
+        return map(apply, [transform_point] * len(points), points)
 
     def router_update(self):
         h = self.handles()
+        # use canvasprojection?
         endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
         transform_point = self.canvas.get_matrix_i2c(self).transform_point
         conn = self._router_shape
@@ -124,7 +246,7 @@ class AvoidLineMixin(object):
                 checkpoints.append(transform_point(*h.pos))
         conn.routingCheckpoints = checkpoints
 
-    def _router_shape_updated(self):
+    def _router_conns_updated(self):
         try:
             transform_point = self.canvas.get_matrix_c2i(self).transform_point
             route = self._router_shape.displayRoute
@@ -162,6 +284,7 @@ class AvoidLineMixin(object):
             h.pos.x = p[0]
             h.pos.y = p[1]
             h.routing = c
+
 
 @HandleInMotion.when_type(AvoidLineMixin)
 class MyLineHandleInMotion(ItemHandleInMotion):
