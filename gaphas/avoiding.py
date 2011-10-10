@@ -6,28 +6,19 @@ import logging
 from math import atan2
 
 from gaphas import Canvas
-from gaphas.geometry import Rectangle, distance_line_point
+from gaphas.geometry import Rectangle, distance_line_point, distance_rectangle_point
 from gaphas.item import Item
 from gaphas.connector import Handle
-from gaphas.aspect import InMotion, Connector, ConnectionSink
+from gaphas.aspect import HandleInMotion, ItemHandleInMotion, InMotion, Connector, ConnectionSink
 from gaphas.segment import Segment
 from state import observed, reversible_pair, reversible_property
-
+from gaphas.solver import VERY_STRONG
 
 import libavoid
 
 class AvoidSolver(object):
 
     def __init__(self):
-        pass
-
-    # implement solver methods
-    # allow to make the right kind of constraint
-    
-class AvoidCanvas(Canvas):
-
-    def __init__(self):
-        super(AvoidCanvas, self).__init__()
         #self.router = libavoid.Router(libavoid.ORTHOGONAL_ROUTING)
         self.router = libavoid.Router(libavoid.POLY_LINE_ROUTING)
         #self.router.setRoutingPenalty(libavoid.SEGMENT_PENALTY, 40)
@@ -37,16 +28,25 @@ class AvoidCanvas(Canvas):
         #self.router.setRoutingPenalty(libavoid.PORT_DIRECTION_PENALTY, 4000)
         #self.router.setOrthogonalNudgeDistance(14)
 
-    def update_constraints(self, items):
-        # For item internal constrains (on Elements for example):
-        super(AvoidCanvas, self).update_constraints(items)
+    def request_resolve(self):
+        pass
 
-        # item's can be marked dirty due to constraint solving
-        for item in items.union(self._dirty_items):
-            item.router_update()
-
+    def solve(self):
         self.router.processTransaction()
 
+
+    # implement solver methods
+    # allow to make the right kind of constraint
+    
+class AvoidCanvas(Canvas):
+
+    def __init__(self):
+        super(AvoidCanvas, self).__init__()
+        self._solver = AvoidSolver()
+
+    @property
+    def router(self):
+        return self._solver.router
 # Set constraints by setting the connection end points
 
     @observed
@@ -83,7 +83,7 @@ class AvoidCanvas(Canvas):
     reversible_pair(connect_item, _disconnect_item)
 
 
-
+# Make this a constraint-less AvoidElement
 class AvoidElementMixin(object):
     """Box with an example connection protocol.
     """
@@ -96,6 +96,7 @@ class AvoidElementMixin(object):
         self.canvas.router.deleteShape(self._router_shape)
         super(AvoidElementMixin, self).teardown_canvas()
 
+    # Get rid of old solver dependency, so this can be done in pre_update()
     def router_update(self):
         i2c = self.canvas.get_matrix_i2c(self)
         coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
@@ -110,6 +111,158 @@ class AvoidElementMixin(object):
         xMin, yMin = r.x, r.y
         xMax, yMax = r.x1, r.y1
         return ((xMax, yMin), (xMax, yMax), (xMin, yMax), (xMin, yMin))
+
+
+from gaphas.item import NW, NE, SE, SW
+
+class AvoidElement(Item):
+    """
+    An Element has 4 handles (for a start)::
+
+     NW +---+ NE
+        |   |
+     SW +---+ SE
+    """
+
+    def __init__(self, width=10, height=10):
+        super(AvoidElement, self).__init__()
+        self._handles = [ h(strength=VERY_STRONG) for h in [Handle]*4 ]
+
+        self._min_width = width
+        self._min_height = height
+        # set width/height when minimal size constraints exist
+        self.width = width
+        self.height = height
+
+
+    def setup_canvas(self):
+        """
+        Called when the canvas is set for the item.
+        This method can be used to create constraints.
+        """
+        super(AvoidElement, self).setup_canvas()
+
+        self._router_shape = libavoid.ShapeRef(self.canvas.router, self.outline())
+
+    def teardown_canvas(self):
+        """
+        Called when the canvas is unset for the item.
+        This method can be used to dispose constraints.
+        """
+        self.canvas.router.deleteShape(self._router_shape)
+        super(AvoidElement, self).teardown_canvas()
+
+
+    def _set_width(self, width):
+        """
+        >>> b=AvoidElement()
+        >>> b.width = 20
+        >>> b.width
+        20.0
+        >>> b._handles[NW].pos.x
+        Variable(0, 40)
+        >>> b._handles[SE].pos.x
+        Variable(20, 40)
+        """
+        if width < self.min_width:
+            width = self.min_width
+        h = self._handles
+        h[NE].pos.x = h[SE].pos.x = h[NW].pos.x + width
+
+
+    def _get_width(self):
+        """
+        Width of the box, calculated as the distance from the left and
+        right handle.
+        """
+        h = self._handles
+        return float(h[NE].pos.x) - float(h[NW].pos.x)
+
+    width = property(_get_width, _set_width)
+
+    def _set_height(self, height):
+        """
+        >>> b=AvoidElement()
+        >>> b.height = 20
+        >>> b.height
+        20.0
+        >>> b.height = 2
+        >>> b.height
+        10.0
+        >>> b._handles[NW].pos.y
+        Variable(0, 40)
+        >>> b._handles[SE].pos.y
+        Variable(10, 40)
+        """
+        if height < self.min_height:
+            height = self.min_height
+        h = self._handles
+        h[SE].pos.y = h[SW].pos.y = h[NW].pos.y + height
+
+    def _get_height(self):
+        """
+        Height.
+        """
+        h = self._handles
+        return float(h[SW].pos.y) - float(h[NW].pos.y)
+
+    height = property(_get_height, _set_height)
+
+    @observed
+    def _set_min_width(self, min_width):
+        """
+        Set minimal width.
+        """
+        if min_width < 0:
+            raise ValueError, 'Minimal width cannot be less than 0'
+
+        self._min_width = min_width
+
+    min_width = reversible_property(lambda s: s._min_width, _set_min_width)
+
+    @observed
+    def _set_min_height(self, min_height):
+        """
+        Set minimal height.
+        """
+        if min_height < 0:
+            raise ValueError, 'Minimal height cannot be less than 0'
+
+        self._min_height = min_height
+
+    min_height = reversible_property(lambda s: s._min_height, _set_min_height)
+
+    # Get rid of old solver dependency, so this can be done in pre_update()
+    def pre_update(self, ctx):
+        i2c = self.canvas.get_matrix_i2c(self)
+        coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
+        self.canvas.router.moveShape(self._router_shape, coutline)
+
+    def outline(self):
+        h = self.handles()
+        m = 0
+        r = Rectangle(h[0].pos.x, h[0].pos.y, x1=h[2].pos.x, y1=h[2].pos.y)
+        r.expand(5)
+        #print r
+        xMin, yMin = r.x, r.y
+        xMax, yMax = r.x1, r.y1
+        return ((xMax, yMin), (xMax, yMax), (xMin, yMax), (xMin, yMin))
+        
+    def point(self, pos):
+        """
+        Distance from the point (x, y) to the item.
+
+        >>> e = AvoidElement()
+        >>> e.point((20, 10))
+        10.0
+        """
+        h = self._handles
+        pnw, pse = h[NW].pos, h[SE].pos
+        return distance_rectangle_point(map(float, (pnw.x, pnw.y, pse.x, pse.y)), pos)
+
+
+
+
 
 
 class AvoidLine(Item):
@@ -297,7 +450,7 @@ class AvoidLine(Item):
 #@ConnectionSink(AvoidLine)
 #...
 # TODO: connect to shape: create unique Pin, connect to that.
-#@ConnectionSink(AvoidElementMixin)
+#@ConnectionSink(AvoidElement)
 #...
 
 
@@ -341,18 +494,54 @@ class AvoidLineInMotion(object):
         pass
 
 
-#@HandleInMotion.when_type(AvoidLine)
-#class MyLineHandleInMotion(ItemHandleInMotion):
-#
-#    def __init__(self, item, handle, view):
-#        super(MyLineHandleInMotion, self).__init__(item, handle, view)
-#
-#    def move(self, pos):
-#        sink = super(MyLineHandleInMotion, self).move(pos)
-#
-#        self.item.request_update()
-#
-#        return sink
+@HandleInMotion.when_type(AvoidElement)
+class MyLineHandleInMotion(ItemHandleInMotion):
+
+    def __init__(self, item, handle, view):
+        super(MyLineHandleInMotion, self).__init__(item, handle, view)
+
+    def set_handle(self, handle, x, y):
+        item = self.item
+        handles = item.handles()
+        if handle is handles[0]:
+            if x + item.min_width <= handles[1].pos.x:
+                handles[0].pos.x = handles[3].pos.x = x
+            if y + item.min_height <= handles[3].pos.y:
+                handles[0].pos.y = handles[1].pos.y = y
+        elif handle is handles[1]:
+            if x - item.min_width >= handles[0].pos.x:
+                handles[1].pos.x = handles[2].pos.x = x
+            if y + item.min_height <= handles[2].pos.y:
+                handles[1].pos.y = handles[0].pos.y = y
+        elif handle is handles[2]:
+            if x - item.min_width >= handles[0].pos.x:
+                handles[2].pos.x = handles[1].pos.x = x
+            if y - item.min_height >= handles[1].pos.y:
+                handles[2].pos.y = handles[3].pos.y = y
+        elif handle is handles[3]:
+            if x + item.min_width <= handles[2].pos.x:
+                handles[3].pos.x = handles[0].pos.x = x
+            if y - item.min_height >= handles[0].pos.y:
+                handles[3].pos.y = handles[2].pos.y = y
+
+    def move(self, pos):
+        item = self.item
+        handle = self.handle
+        view = self.view
+
+        v2i = view.get_matrix_v2i(item)
+
+        x, y = v2i.transform_point(*pos)
+
+        self.set_handle(handle, x, y)
+
+        sink = self.glue(pos)
+
+        # do not request matrix update as matrix recalculation will be
+        # performed due to item normalization if required
+        item.request_update(matrix=False)
+
+        return sink
 
 
 # vim: sw=4:et:ai

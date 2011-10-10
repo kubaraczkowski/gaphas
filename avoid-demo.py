@@ -37,7 +37,7 @@ import gaphas.guide
 from gaphas import state
 from gaphas.aspect import HandleInMotion, ItemHandleInMotion
 from gaphas.segment import Segment
-from gaphas.avoiding import AvoidCanvas, AvoidLine, AvoidElementMixin
+from gaphas.avoiding import AvoidCanvas, AvoidElement, AvoidLine
 
 from gaphas import painter
 #painter.DEBUG_DRAW_BOUNDING_BOX = True
@@ -66,10 +66,21 @@ def factory(view, cls):
     return wrapper
 
 
-class MyBox(AvoidElementMixin, Box):
+class MyBox(AvoidElement):
     """Box with an example connection protocol.
     """
     pass
+
+    def draw(self, ctx):
+        cr = ctx.cairo
+        h = self._handles
+
+        cr.move_to(*h[0].pos)
+        cr.line_to(*h[1].pos)
+        cr.line_to(*h[2].pos)
+        cr.line_to(*h[3].pos)
+        #cr.close_path()
+        cr.stroke()
 
 class MyLine(AvoidLine):
     """Line with experimental connection protocol.
@@ -375,6 +386,8 @@ def main():
 
     c.add(box)
     box.matrix.translate(100, 100)
+    box.request_update()
+    print box.handles()
     #box.width = 100
     #box.height = 100
 
