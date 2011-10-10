@@ -78,19 +78,19 @@ class MyLine(AvoidLine):
         super(MyLine, self).__init__()
         self.fuzziness = 2
 
-#    def draw_head(self, context):
-#        cr = context.cairo
-#        cr.move_to(0, 0)
-#        cr.line_to(10, 10)
-#        cr.stroke()
-#        # Start point for the line to the next handle
-#        cr.move_to(0, 0)
-#
-#    def draw_tail(self, context):
-#        cr = context.cairo
-#        cr.line_to(0, 0)
-#        cr.line_to(10, 10)
-#        cr.stroke()
+    def draw_head(self, context):
+        cr = context.cairo
+        cr.move_to(0, 0)
+        cr.line_to(10, 10)
+        cr.stroke()
+        # Start point for the line to the next handle
+        cr.move_to(0, 0)
+
+    def draw_tail(self, context):
+        cr = context.cairo
+        cr.line_to(0, 0)
+        cr.line_to(10, 10)
+        cr.stroke()
 
 
 def create_window(canvas, title, zoom=1.0):

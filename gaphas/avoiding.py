@@ -3,6 +3,8 @@ Elements with support for libavoid, the automatic line router.
 """
 
 import logging
+from math import atan2
+
 from gaphas import Canvas
 from gaphas.geometry import Rectangle, distance_line_point
 from gaphas.item import Item
@@ -121,7 +123,7 @@ class AvoidLine(Item):
         super(AvoidLine, self).__init__()
         # Handles only for endpoints and checkpoints
         self._handles = [Handle(connectable=True), Handle((10, 10), connectable=True)]
-        self._ports = []
+        #self._ports = []
         # TODO: self._update_ports()
 
         self._line_width = 2
@@ -165,7 +167,6 @@ class AvoidLine(Item):
     def pre_update(self, context):
         super(AvoidLine, self).pre_update(context)
 
-    def router_update(self):
         h = self.handles()
         # use canvasprojection?
         endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
@@ -180,17 +181,19 @@ class AvoidLine(Item):
             checkpoints.append(transform_point(*h.pos))
         conns[0].routingCheckpoints = checkpoints
 
+    def router_update(self):
+        pass
+
     def post_update(self, context):
         """
         """
         super(AvoidLine, self).post_update(context)
-        # TODO: base on line routing
-        #h0, h1 = self._handles[:2]
-        #p0, p1 = h0.pos, h1.pos
-        #self._head_angle = atan2(p1.y - p0.y, p1.x - p0.x)
-        #h1, h0 = self._handles[-2:]
-        #p1, p0 = h1.pos, h0.pos
-        #self._tail_angle = atan2(p1.y - p0.y, p1.x - p0.x)
+        p0, p1 = self._router_conns[0].displayRoute[:2]
+        p0, p1 = self.points_c2i(p0, p1)
+        self._head_angle = atan2(p1[1] - p0[1], p1[0] - p0[0])
+        p1, p0 = self._router_conns[-1].displayRoute[-2:]
+        p0, p1 = self.points_c2i(p0, p1)
+        self._tail_angle = atan2(p1[1] - p0[1], p1[0] - p0[0])
 
     def closest_segment(self, pos):
         """
