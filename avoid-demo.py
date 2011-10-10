@@ -379,18 +379,20 @@ def main():
     #box.height = 100
 
     c.add(line)
-    j = libavoid.JunctionRef(c.router, (100, 100))
+    #j = libavoid.JunctionRef(c.router, (100, 100))
     
     #print 'box shape', box._router_shape, box._router_shape.router
     #box._router_shape.addConnectionPin(15, 0.2, 0.2) 
     print 'line shape', line._router_conns
     #line._router_conns[0].setSourceEndpoint( box._router_shape)
-    line._router_conns[0].setDestEndpoint( j )
+    #line._router_conns[0].setDestEndpoint( j )
 
-    line2 = MyLine()
-    line2.matrix.translate(50, 0)
-    c.add(line2)
-    line2._router_conns[0].setDestEndpoint( j )
+    #line2 = MyLine()
+    #line2.matrix.translate(50, 0)
+    #c.add(line2)
+    #line2._router_conns[0].setDestEndpoint( j )
+
+    #c.update()
 
     #state.subscribers.add(print_handler)
 

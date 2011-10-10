@@ -7,7 +7,7 @@ from gaphas import Canvas
 from gaphas.geometry import Rectangle, distance_line_point
 from gaphas.item import Item
 from gaphas.connector import Handle
-from gaphas.aspect import HandleInMotion, ItemHandleInMotion
+from gaphas.aspect import InMotion, Connector, ConnectionSink
 from gaphas.segment import Segment
 from state import observed, reversible_pair, reversible_property
 
@@ -28,14 +28,15 @@ class AvoidCanvas(Canvas):
         super(AvoidCanvas, self).__init__()
         #self.router = libavoid.Router(libavoid.ORTHOGONAL_ROUTING)
         self.router = libavoid.Router(libavoid.POLY_LINE_ROUTING)
-        self.router.setRoutingPenalty(libavoid.SEGMENT_PENALTY, 40)
-        self.router.setRoutingPenalty(libavoid.ANGLE_PENALTY, 400)
-        self.router.setRoutingPenalty(libavoid.CROSSING_PENALTY, 4000)
-        self.router.setRoutingPenalty(libavoid.FIXED_SHARED_PATH_PENALTY, 8000)
-        self.router.setRoutingPenalty(libavoid.PORT_DIRECTION_PENALTY, 4000)
-        self.router.setOrthogonalNudgeDistance(14)
+        #self.router.setRoutingPenalty(libavoid.SEGMENT_PENALTY, 40)
+        #self.router.setRoutingPenalty(libavoid.ANGLE_PENALTY, 400)
+        #self.router.setRoutingPenalty(libavoid.CROSSING_PENALTY, 4000)
+        #self.router.setRoutingPenalty(libavoid.FIXED_SHARED_PATH_PENALTY, 8000)
+        #self.router.setRoutingPenalty(libavoid.PORT_DIRECTION_PENALTY, 4000)
+        #self.router.setOrthogonalNudgeDistance(14)
 
     def update_constraints(self, items):
+        # For item internal constrains (on Elements for example):
         super(AvoidCanvas, self).update_constraints(items)
 
         # item's can be marked dirty due to constraint solving
@@ -164,6 +165,21 @@ class AvoidLine(Item):
     def pre_update(self, context):
         super(AvoidLine, self).pre_update(context)
 
+    def router_update(self):
+        h = self.handles()
+        # use canvasprojection?
+        endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
+        transform_point = self.canvas.get_matrix_i2c(self).transform_point
+        conns = self._router_conns
+        if not isinstance(conns[0].sourceEndpoint, (libavoid.ShapeRef, libavoid.JunctionRef)):
+            conns[0].setSourceEndpoint(transform_point(*endpoints[0]))
+        if not isinstance(conns[-1].destEndpoint, (libavoid.ShapeRef, libavoid.JunctionRef)):
+            conns[-1].setDestEndpoint(transform_point(*endpoints[-1]))
+        checkpoints = []
+        for h in self._handles[1:-1]:
+            checkpoints.append(transform_point(*h.pos))
+        conns[0].routingCheckpoints = checkpoints
+
     def post_update(self, context):
         """
         """
@@ -241,8 +257,10 @@ class AvoidLine(Item):
         cr = context.cairo
         cr.set_line_width(self.line_width)
         draw_line_end(self._handles[0].pos, self._head_angle, self.draw_head)
-        for h in self._handles[1:-1]:
-            cr.line_to(*h.pos)
+        transform_point = self.canvas.get_matrix_c2i(self).transform_point
+        for conn in self._router_conns:
+            for p in self.points_c2i(*conn.displayRoute):
+                cr.line_to(*p)
         draw_line_end(self._handles[-1].pos, self._tail_angle, self.draw_tail)
         cr.stroke()
 
@@ -251,52 +269,74 @@ class AvoidLine(Item):
         transform_point = self.canvas.get_matrix_c2i(self).transform_point
         return map(apply, [transform_point] * len(points), points)
 
-    def router_update(self):
-        h = self.handles()
-        # use canvasprojection?
-        endpoints = ((h[0].pos.x, h[0].pos.y), (h[-1].pos.x, h[-1].pos.y))
-        transform_point = self.canvas.get_matrix_i2c(self).transform_point
-        conns = self._router_conns
-        # if not isinstance(conns[0].sourceEndpoint, libavoid.ShapeRef):
-        conns[0].setSourceEndpoint(transform_point(*endpoints[0]))
-        # if not isinstance(conns[-1].destEndpoint, libavoid.ShapeRef):
-        conns[-1].setDestEndpoint(transform_point(*endpoints[-1]))
-        checkpoints = []
-        for h in self._handles[1:-1]:
-            checkpoints.append(transform_point(*h.pos))
-        conns[0].routingCheckpoints = checkpoints
-
     def _router_conns_updated(self):
         try:
             # what to do here? redraw?
-            #self.request_update()
-            pass
+            self.request_update(matrix=False)
+            h = self._handles
+            p0 = self._router_conns[0].displayRoute[0]
+            p1 = self._router_conns[-1].displayRoute[-1]
+            p0, p1 = self.points_c2i(p0, p1)
+            h[0].pos.x = p0[0]
+            h[0].pos.x = p0[0]
+            h[-1].pos.y = p1[1]
+            h[-1].pos.y = p1[1]
         except:
             logging.error('Unable to handle callback', exc_info=1)
 
-    def update_endpoints(self, newpoints):
-        """
-        Newpoints is a list of tuple (point, is_checkpoint).
-        """
-        # TODO: How to determine where to split? Connections will also move
 
-        n_points = len(newpoints)
-        segm = Segment(self, None)
-
-        # Find only router points to remove and add
-        while len(self._handles) < n_points:
-            h, ports = segm.split_segment(0, 2)
-        while len(self._handles) > n_points:
-            segm.merge_segment(0)
-
-        for h, (p, c) in zip(self._handles, newpoints):
-            h.pos.x = p[0]
-            h.pos.y = p[1]
-            h.routing = c
-
-# TODO: connect to shape: create unique Pin, connect to that.
-# TODO: create new line splitting handler
+# TODO: What to do with ports? They don't fit in the libavoid model
+# TODO: Make aspect update router_conns.
 # TODO: connector: create new line segment on creation, merge one on disconnect
+#@Connector.when_type(AvoidLine)
+#...
+
+#@ConnectionSink(AvoidLine)
+#...
+# TODO: connect to shape: create unique Pin, connect to that.
+#@ConnectionSink(AvoidElementMixin)
+#...
+
+
+# TODO: create new line splitting handler
+@InMotion.when_type(AvoidLine)
+class AvoidLineInMotion(object):
+    """
+    An Avoid Line is not moved. Instead an extra handle is created which is
+    moved instead.
+
+    The intermediate handles will function as checkpoints on the line.
+
+    # TODO: How to deal with split lines due to junctions?
+    """
+
+    def __init__(self, item, view):
+        self.item = item
+        self.view = view
+        self.last_x, self.last_y = None, None
+
+    def start_move(self, pos):
+        self.last_x, self.last_y = pos
+
+    def move(self, pos):
+        """
+        Move the item. x and y are in view coordinates.
+        """
+        item = self.item
+        view = self.view
+        v2i = view.get_matrix_v2i(item)
+
+        x, y = pos
+        dx, dy = x - self.last_x, y - self.last_y
+        dx, dy = v2i.transform_distance(dx, dy)
+        self.last_x, self.last_y = x, y
+
+        item.matrix.translate(dx, dy)
+        item.canvas.request_matrix_update(item)
+
+    def stop_move(self):
+        pass
+
 
 #@HandleInMotion.when_type(AvoidLine)
 #class MyLineHandleInMotion(ItemHandleInMotion):
