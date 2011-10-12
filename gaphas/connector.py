@@ -260,4 +260,25 @@ class PointPort(Port):
         return c #PositionConstraint(origin, point)
 
 
+class PolygonPort(Port):
+    """
+    The port describes a polygon. connected items will point to the center
+    of the polygon.
+    """
+
+    def __init__(self):
+        super(PolygonPort, self).__init__()
+        self.polygon = ()
+
+    def glue(self, pos):
+        polygon = self.polygon
+        md = 1000
+        pl = None
+        for a, b in zip(polygon, polygon[1:]):
+            d, p = distance_line_point(a, b, pos)
+            if d < md:
+                md = d
+                pl = p
+        return pl, md
+
 # vim: sw=4:et:ai

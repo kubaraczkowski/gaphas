@@ -119,9 +119,9 @@ class Canvas(object):
         self._tree.add(item, parent, index)
         self._dirty_index = True
 
-        self.update_matrix(item, parent)
-
         item._set_canvas(self)
+
+        #self.update_matrix(item, parent)
 
         self.request_update(item)
 
@@ -672,7 +672,9 @@ class Canvas(object):
             dirty_matrix_items = self.update_matrices(self._dirty_matrix_items)
             self._dirty_matrix_items.clear()
 
+            # Hard of the update phase: constraint solving
             self.update_constraints(dirty_matrix_items)
+
             # item's can be marked dirty due to constraints solving
             extend_dirty_items(dirty_items)
 
@@ -688,7 +690,7 @@ class Canvas(object):
             dirty_matrix_items.update(self.update_matrices(normalized_items))
 
             # ensure constraints are still true after normalization
-            self._solver.solve()
+            #self._solver.solve()
 
             # item's can be marked dirty due to normalization and solving
             extend_dirty_items(dirty_items)
@@ -717,8 +719,8 @@ class Canvas(object):
         for item in items:
             parent = self._tree.get_parent(item)
             if parent is not None and parent in items:
-                # item's matrix will be updated thanks to parent's matrix
-                # update
+                # item's matrix will be updated at a later stage, since
+                # all children will be updated anyway
                 continue
 
             self.update_matrix(item, parent)

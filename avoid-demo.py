@@ -79,7 +79,7 @@ class MyBox(AvoidElement):
         cr.line_to(*h[1].pos)
         cr.line_to(*h[2].pos)
         cr.line_to(*h[3].pos)
-        #cr.close_path()
+        cr.close_path()
         cr.stroke()
 
 class MyLine(AvoidLine):

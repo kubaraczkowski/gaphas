@@ -1,6 +1,6 @@
 
 import unittest
-from gaphas.connector import Position, Handle
+from gaphas.connector import Position, Handle, PolygonPort
 
 class PositionTestCase(unittest.TestCase):
 
@@ -22,4 +22,12 @@ class HandleTestCase(unittest.TestCase):
         self.assertEquals(0.0, h.x)
         self.assertEquals(0.0, h.y)
         
+
+class PolygonPortTestCase(unittest.TestCase):
+
+    def test_glue(self):
+        p = PolygonPort()
+        p.polygon = ((0, 0), (10, 0), (10, 10))
+        self.assertEquals(((0, 0), 1), p.glue((-1, 0)))
+
 # vim: sw=4:et:ai

@@ -8,7 +8,7 @@ from math import atan2
 from gaphas import Canvas
 from gaphas.geometry import Rectangle, distance_line_point, distance_rectangle_point
 from gaphas.item import Item
-from gaphas.connector import Handle
+from gaphas.connector import Handle, PolygonPort
 from gaphas.aspect import HandleInMotion, ItemHandleInMotion, InMotion, Connector, ConnectionSink
 from gaphas.segment import Segment
 from state import observed, reversible_pair, reversible_property
@@ -34,10 +34,9 @@ class AvoidSolver(object):
     def solve(self):
         self.router.processTransaction()
 
-
-    # implement solver methods
     # allow to make the right kind of constraint
-    
+
+
 class AvoidCanvas(Canvas):
 
     def __init__(self):
@@ -47,7 +46,17 @@ class AvoidCanvas(Canvas):
     @property
     def router(self):
         return self._solver.router
-# Set constraints by setting the connection end points
+
+    def update_matrix(self, item, parent=None):
+        super(AvoidCanvas, self).update_matrix(item, parent)
+        try:
+            matrix_updated = item.matrix_updated
+        except AttributeError:
+            pass
+        else:
+            matrix_updated()
+ 
+    # Set constraints by setting the connection end points
 
     @observed
     def connect_item(self, item, handle, connected, port, constraint=None, callback=None):
@@ -96,8 +105,7 @@ class AvoidElementMixin(object):
         self.canvas.router.deleteShape(self._router_shape)
         super(AvoidElementMixin, self).teardown_canvas()
 
-    # Get rid of old solver dependency, so this can be done in pre_update()
-    def router_update(self):
+    def pre_update(self):
         i2c = self.canvas.get_matrix_i2c(self)
         coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
         self.canvas.router.moveShape(self._router_shape, coutline)
@@ -133,6 +141,8 @@ class AvoidElement(Item):
         # set width/height when minimal size constraints exist
         self.width = width
         self.height = height
+
+        self._ports.append(PolygonPort())
 
 
     def setup_canvas(self):
@@ -234,6 +244,10 @@ class AvoidElement(Item):
 
     # Get rid of old solver dependency, so this can be done in pre_update()
     def pre_update(self, ctx):
+        print 'update element'
+        self.matrix_updated()
+
+    def matrix_updated(self):
         i2c = self.canvas.get_matrix_i2c(self)
         coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
         self.canvas.router.moveShape(self._router_shape, coutline)
@@ -252,9 +266,9 @@ class AvoidElement(Item):
         """
         Distance from the point (x, y) to the item.
 
-        >>> e = AvoidElement()
-        >>> e.point((20, 10))
-        10.0
+        #>>> e = AvoidElement()
+        #>>> e.point((20, 10))
+        #10.0
         """
         h = self._handles
         pnw, pse = h[NW].pos, h[SE].pos
@@ -355,9 +369,9 @@ class AvoidLine(Item):
         Point_on_line is the reflection of the point on the line.
         Segment is the line segment closest to (x, y)
 
-        >>> a = Line()
-        >>> a.closest_segment((4, 5))
-        (0.70710678118654757, (4.5, 4.5), 0)
+        #>>> a = AvoidLine()
+        #>>> a.closest_segment((4, 5))
+        #(0.70710678118654757, (4.5, 4.5), 0)
         """
         for conn in self._router_conns:
             hpos = self.points_c2i(*conn.displayRoute)
@@ -369,15 +383,14 @@ class AvoidLine(Item):
 
     def point(self, pos):
         """
-        >>> a = Line()
-        >>> a.handles()[1].pos = 25, 5
-        >>> a._handles.append(a._create_handle((30, 30)))
-        >>> a.point((-1, 0))
-        1.0
-        >>> '%.3f' % a.point((5, 4))
-        '2.942'
-        >>> '%.3f' % a.point((29, 29))
-        '0.784'
+        #>>> a = AvoidLine()
+        #>>> a.handles()[1].pos = 25, 5
+        #>>> a.point((-1, 0))
+        #1.0
+        #>>> '%.3f' % a.point((5, 4))
+        #'2.942'
+        #>>> '%.3f' % a.point((29, 29))
+        #'0.784'
         """
         distance, point, segment = self.closest_segment(pos)
         return max(0, distance - self.fuzziness)
