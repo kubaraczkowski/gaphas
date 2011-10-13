@@ -322,10 +322,9 @@ class ItemConnectionSink(object):
         max_dist = 10e6
         for p in self.item.ports():
             pg, d = p.glue(pos)
-            if d >= max_dist:
-                continue
-            port = p
-            max_dist = d
+            if d < max_dist:
+                port = p
+                max_dist = d
 
         return port
 

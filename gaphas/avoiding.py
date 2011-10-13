@@ -6,10 +6,10 @@ import logging
 from math import atan2
 
 from gaphas import Canvas
-from gaphas.geometry import Rectangle, distance_line_point, distance_rectangle_point
+from gaphas.geometry import Rectangle, distance_line_point, distance_rectangle_point, intersect_line_line
 from gaphas.item import Item
 from gaphas.connector import Handle, PolygonPort
-from gaphas.aspect import HandleInMotion, ItemHandleInMotion, InMotion, Connector, ConnectionSink
+from gaphas.aspect import HandleInMotion, ItemHandleInMotion, InMotion, Connector, ItemConnector
 from gaphas.segment import Segment
 from state import observed, reversible_pair, reversible_property
 from gaphas.solver import VERY_STRONG
@@ -60,15 +60,16 @@ class AvoidCanvas(Canvas):
 
     @observed
     def connect_item(self, item, handle, connected, port, constraint=None, callback=None):
+        print 'connect_item', item, connected
         if self.get_connection(handle):
             raise ConnectionError('Handle %r of item %r is already connected' % (handle, item))
 
         self._connections.insert(item, handle, connected, port, constraint, callback)
 
         if handle is item.handles()[0]:
-            item._router_shape.setSourceEndPoint(connected._router_shape)
+            item._router_conns[0].setSourceEndpoint(connected._router_shape)
         else:
-            item._router_shape.setDestEndPoint(connected._router_shape)
+            item._router_conns[-1].setDestEndpoint(connected._router_shape)
 
 
     @observed
@@ -79,6 +80,7 @@ class AvoidCanvas(Canvas):
         # Same arguments as connect_item, makes reverser easy
         if handle is item.handles()[0]:
             print 'Set shape on head'
+            # TODO: handle end point coordinate
             item._router_shape.setSourceEndPoint(None)
         else:
             print 'Set shape on tail'
@@ -88,37 +90,9 @@ class AvoidCanvas(Canvas):
             callback()
 
         self._connections.delete(item, handle, connected, port, constraint, callback)
+        item.request_update()
 
     reversible_pair(connect_item, _disconnect_item)
-
-
-# Make this a constraint-less AvoidElement
-class AvoidElementMixin(object):
-    """Box with an example connection protocol.
-    """
-
-    def setup_canvas(self):
-        super(AvoidElementMixin, self).setup_canvas()
-        self._router_shape = libavoid.ShapeRef(self.canvas.router, self.outline())
-
-    def teardown_canvas(self):
-        self.canvas.router.deleteShape(self._router_shape)
-        super(AvoidElementMixin, self).teardown_canvas()
-
-    def pre_update(self):
-        i2c = self.canvas.get_matrix_i2c(self)
-        coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
-        self.canvas.router.moveShape(self._router_shape, coutline)
-
-    def outline(self):
-        h = self.handles()
-        m = 0
-        r = Rectangle(h[0].pos.x, h[0].pos.y, x1=h[2].pos.x, y1=h[2].pos.y)
-        r.expand(5)
-        print r
-        xMin, yMin = r.x, r.y
-        xMax, yMax = r.x1, r.y1
-        return ((xMax, yMin), (xMax, yMax), (xMin, yMax), (xMin, yMin))
 
 
 from gaphas.item import NW, NE, SE, SW
@@ -244,19 +218,20 @@ class AvoidElement(Item):
 
     # Get rid of old solver dependency, so this can be done in pre_update()
     def pre_update(self, ctx):
-        print 'update element'
         self.matrix_updated()
 
     def matrix_updated(self):
         i2c = self.canvas.get_matrix_i2c(self)
-        coutline = map(lambda xy: i2c.transform_point(*xy), self.outline())
+        outline = self.outline()
+        coutline = map(lambda xy: i2c.transform_point(*xy), outline)
         self.canvas.router.moveShape(self._router_shape, coutline)
+        self._ports[0].polygon = outline
 
     def outline(self):
         h = self.handles()
         m = 0
         r = Rectangle(h[0].pos.x, h[0].pos.y, x1=h[2].pos.x, y1=h[2].pos.y)
-        r.expand(5)
+        #r.expand(5)
         #print r
         xMin, yMin = r.x, r.y
         xMax, yMax = r.x1, r.y1
@@ -353,8 +328,28 @@ class AvoidLine(Item):
 
     def post_update(self, context):
         """
+        After constraint solving, the handles should be placed on the
+        boundries of the element they're connected to (if any).
         """
+        def place_handle(shape, p0, p1):
+            #item = self.canvas.get_connection(self._handles[0])
+            poly = shape.polygon
+            for sp0, sp1 in zip(poly, poly[1:] + poly[:1]):
+                i = intersect_line_line(p0, p1, sp0, sp1)
+                if i:
+                    return self.canvas.get_matrix_c2i(self).transform_point(*i)
+
         super(AvoidLine, self).post_update(context)
+
+        src = self._router_conns[0]
+        if isinstance(src.sourceEndpoint, libavoid.ShapeRef):
+            self._handles[0].pos = place_handle(src.sourceEndpoint, *src.displayRoute[:2])
+
+        dst = self._router_conns[-1]
+        if isinstance(dst.destEndpoint, libavoid.ShapeRef):
+            self._handles[-1].pos = place_handle(dst.destEndpoint, *dst.displayRoute[-2:])
+
+        # Update angles
         p0, p1 = self._router_conns[0].displayRoute[:2]
         p0, p1 = self.points_c2i(p0, p1)
         self._head_angle = atan2(p1[1] - p0[1], p1[0] - p0[0])
@@ -425,12 +420,15 @@ class AvoidLine(Item):
 
         cr = context.cairo
         cr.set_line_width(self.line_width)
-        draw_line_end(self._handles[0].pos, self._head_angle, self.draw_head)
+        #draw_line_end(self._handles[0].pos, self._head_angle, self.draw_head)
+        cr.move_to(*self._handles[0].pos)
         transform_point = self.canvas.get_matrix_c2i(self).transform_point
         for conn in self._router_conns:
-            for p in self.points_c2i(*conn.displayRoute):
+            # TODO: skip first point and last point. Those are handle positions.
+            for p in self.points_c2i(*conn.displayRoute[1:-1]):
                 cr.line_to(*p)
-        draw_line_end(self._handles[-1].pos, self._tail_angle, self.draw_tail)
+        #draw_line_end(self._handles[-1].pos, self._tail_angle, self.draw_tail)
+        cr.line_to(*self._handles[-1].pos)
         cr.stroke()
 
 
@@ -458,13 +456,31 @@ class AvoidLine(Item):
 # TODO: Make aspect update router_conns.
 # TODO: connector: create new line segment on creation, merge one on disconnect
 #@Connector.when_type(AvoidLine)
-#...
+def AvoidLineConnector(ItemConnector):
+
+    def __init__(self, item, handle):
+        super(AvoidLineConnector, self).__init__(item, handle)
+
+    def allow(self, sink):
+        return hasattr(sink.item, '_router_shape')
+
+    def connect_handle(self, sink, callback=None):
+        canvas = self.item.canvas
+        handle = self.handle
+        item = self.item
+
+        constraint = None
+
+        canvas.connect_item(item, handle, sink.item, sink.port,
+            constraint, callback=callback)
+
+
 
 #@ConnectionSink(AvoidLine)
 #...
 # TODO: connect to shape: create unique Pin, connect to that.
 #@ConnectionSink(AvoidElement)
-#...
+#def AvoidElementConnectionSink
 
 
 # TODO: create new line splitting handler

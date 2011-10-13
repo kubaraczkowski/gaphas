@@ -274,11 +274,15 @@ class PolygonPort(Port):
         polygon = self.polygon
         md = 1000
         pl = None
-        for a, b in zip(polygon, polygon[1:]):
+        for a, b in zip(polygon, polygon[1:] + polygon[:1]):
             d, p = distance_line_point(a, b, pos)
             if d < md:
                 md = d
                 pl = p
         return pl, md
+
+    def constraint(self, canvas, item, handle, glue_item):
+        return None
+
 
 # vim: sw=4:et:ai
