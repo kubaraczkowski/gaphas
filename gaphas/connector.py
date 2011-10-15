@@ -260,6 +260,9 @@ class PointPort(Port):
         return c #PositionConstraint(origin, point)
 
 
+from collections import namedtuple
+PseudoConstraint = namedtuple('PseudoConstraint', "item handle connected")
+
 class PolygonPort(Port):
     """
     The port describes a polygon. connected items will point to the center
@@ -281,8 +284,8 @@ class PolygonPort(Port):
                 pl = p
         return pl, md
 
-    def constraint(self, canvas, item, handle, glue_item):
-        return None
+    def constraint(self, canvas, item, handle, connected):
+        return PseudoConstraint(item, handle, connected)
 
 
 # vim: sw=4:et:ai

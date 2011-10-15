@@ -17,16 +17,21 @@ from gaphas.solver import VERY_STRONG
 import libavoid
 
 class AvoidSolver(object):
+    """
+    AvoidSolver - the constraint solver for libavoid.
 
+    The minimal solver interface has been implemented, meaning adding and
+    removing constraints and running the solver.
+    """
     def __init__(self):
         #self.router = libavoid.Router(libavoid.ORTHOGONAL_ROUTING)
         self.router = libavoid.Router(libavoid.POLY_LINE_ROUTING)
         #self.router.setRoutingPenalty(libavoid.SEGMENT_PENALTY, 40)
         #self.router.setRoutingPenalty(libavoid.ANGLE_PENALTY, 400)
         #self.router.setRoutingPenalty(libavoid.CROSSING_PENALTY, 4000)
-        #self.router.setRoutingPenalty(libavoid.FIXED_SHARED_PATH_PENALTY, 8000)
-        #self.router.setRoutingPenalty(libavoid.PORT_DIRECTION_PENALTY, 4000)
-        #self.router.setOrthogonalNudgeDistance(14)
+        self.router.setRoutingPenalty(libavoid.FIXED_SHARED_PATH_PENALTY, 80000)
+        self.router.setRoutingPenalty(libavoid.PORT_DIRECTION_PENALTY, 4000)
+        self.router.setOrthogonalNudgeDistance(14)
 
     def request_resolve(self):
         pass
@@ -34,7 +39,25 @@ class AvoidSolver(object):
     def solve(self):
         self.router.processTransaction()
 
-    # allow to make the right kind of constraint
+    def add_constraint(self, constraint):
+        item = constraint.item
+        handle = constraint.handle
+        connected = constraint.connected
+        if handle is item.handles()[0]:
+            item._router_conns[0].setSourceEndpoint(connected._router_shape)
+        else:
+            item._router_conns[-1].setDestEndpoint(connected._router_shape)
+
+    def remove_constraint(self, constraint):
+        assert constraint, 'No constraint (%s)' % (constraint,)
+        item = constraint.item
+        handle = constraint.handle
+        connected = constraint.connected
+        cpos = item.canvas.get_matrix_i2c(item).transform_point(*handle.pos)
+        if handle is item.handles()[0]:
+            item._router_conns[0].setSourceEndpoint(cpos)
+        else:
+            item._router_conns[-1].setDestEndpoint(cpos)
 
 
 class AvoidCanvas(Canvas):
@@ -56,44 +79,6 @@ class AvoidCanvas(Canvas):
         else:
             matrix_updated()
  
-    # Set constraints by setting the connection end points
-
-    @observed
-    def connect_item(self, item, handle, connected, port, constraint=None, callback=None):
-        print 'connect_item', item, connected
-        if self.get_connection(handle):
-            raise ConnectionError('Handle %r of item %r is already connected' % (handle, item))
-
-        self._connections.insert(item, handle, connected, port, constraint, callback)
-
-        if handle is item.handles()[0]:
-            item._router_conns[0].setSourceEndpoint(connected._router_shape)
-        else:
-            item._router_conns[-1].setDestEndpoint(connected._router_shape)
-
-
-    @observed
-    def _disconnect_item(self, item, handle, connected, port, constraint, callback):
-        """
-        Perform the real disconnect.
-        """
-        # Same arguments as connect_item, makes reverser easy
-        if handle is item.handles()[0]:
-            print 'Set shape on head'
-            # TODO: handle end point coordinate
-            item._router_shape.setSourceEndPoint(None)
-        else:
-            print 'Set shape on tail'
-            item._router_shape.setDestEndPoint(None)
-
-        if callback:
-            callback()
-
-        self._connections.delete(item, handle, connected, port, constraint, callback)
-        item.request_update()
-
-    reversible_pair(connect_item, _disconnect_item)
-
 
 from gaphas.item import NW, NE, SE, SW
 
