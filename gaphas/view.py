@@ -466,7 +466,7 @@ class View(object):
 
 
 
-class GtkView(Gtk.DrawingArea, View):
+class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
     # NOTE: Inherit from GTK+ class first, otherwise BusErrors may occur!
     """
     GTK+ widget for rendering a canvas.Canvas to a screen.
@@ -484,8 +484,8 @@ class GtkView(Gtk.DrawingArea, View):
     
     # Signals: emited after the change takes effect.
     __gsignals__ = {
-        'set-scroll-adjustments': (GObject.SignalFlags.RUN_LAST, None,
-                      (Gtk.Adjustment, Gtk.Adjustment)),
+        #'set-scroll-adjustments': (GObject.SignalFlags.RUN_LAST, None,
+        #              (Gtk.Adjustment, Gtk.Adjustment)),
         'dropzone-changed': (GObject.SignalFlags.RUN_LAST, None,
                       (GObject.TYPE_PYOBJECT,)),
         'hover-changed': (GObject.SignalFlags.RUN_LAST, None,
@@ -530,7 +530,16 @@ class GtkView(Gtk.DrawingArea, View):
         # Set background to white.
         self.modify_bg(Gtk.StateType.NORMAL, Gdk.Color(0xFFFF, 0xFFFF, 0xFFFF))
 
+    def _set_hadjustment(self, hadjustment):
+        self.do_set_scroll_adjustments(hadjustment, self._vadjustment)
 
+    hadjustment = GObject.property(lambda s: s._hadjustment, _set_hadjustment)
+    
+    def _set_vadjustment(self, vadjustment):
+        self.do_set_scroll_adjustments(self._hadjustment, vadjustment)
+
+    vadjustment = GObject.property(lambda s: s._vadjustment, _set_vadjustment)
+    
     def emit(self, *args, **kwargs):
         """
         Delegate signal emissions to the DrawingArea (=GTK+)
