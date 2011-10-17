@@ -36,7 +36,6 @@ __version__ = "$Revision$"
 
 import sys
 
-import cairo
 from gi.repository import Gdk, Gtk
 from gaphas.canvas import Context
 from gaphas.geometry import Rectangle

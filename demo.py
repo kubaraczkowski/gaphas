@@ -17,15 +17,15 @@ It sports a small canvas and some trivial operations:
 __version__ = "$Revision$"
 # $HeadURL$
 
-try:
-    import pygtk
-except ImportError:
-    pass
-else:
-    pygtk.require('2.0') 
+#try:
+#    import pygtk
+#except ImportError:
+#    pass
+#else:
+#    pygtk.require('2.0') 
 
 import math
-import gtk
+from gi.repository import Gtk
 import cairo
 from gaphas import Canvas, GtkView, View
 from gaphas.examples import Box, PortoBox, Text, FatLine, Circle
@@ -120,23 +120,23 @@ def create_window(canvas, title, zoom=1.0):
         append(FocusedItemPainter()). \
         append(ToolPainter())
     view.bounding_box_painter = FreeHandPainter(BoundingBoxPainter())
-    w = gtk.Window()
+    w = Gtk.Window()
     w.set_title(title)
-    h = gtk.HBox()
+    h = Gtk.HBox()
     w.add(h)
 
     # VBox contains buttons that can be used to manipulate the canvas:
-    v = gtk.VBox()
+    v = Gtk.VBox()
     v.set_property('border-width', 3)
     v.set_property('spacing', 2)
-    f = gtk.Frame()
+    f = Gtk.Frame()
     f.set_property('border-width', 1)
     f.add(v)
-    h.pack_start(f, expand=False)
+    h.pack_start(f, expand=False, fill=False, padding=0)
 
-    v.add(gtk.Label('Item placement:'))
+    v.add(Gtk.Label('Item placement:'))
     
-    b = gtk.Button('Add box')
+    b = Gtk.Button('Add box')
 
     def on_clicked(button, view):
         #view.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.CROSSHAIR))
@@ -145,7 +145,7 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked, view)
     v.add(b)
 
-    b = gtk.Button('Add line')
+    b = Gtk.Button('Add line')
 
     def on_clicked(button):
         view.tool.grab(PlacementTool(view, factory(view, MyLine), HandleTool(), 1))
@@ -153,9 +153,9 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    v.add(gtk.Label('Zooming:'))
+    v.add(Gtk.Label('Zooming:'))
    
-    b = gtk.Button('Zoom in')
+    b = Gtk.Button('Zoom in')
 
     def on_clicked(button):
         view.zoom(1.2)
@@ -163,7 +163,7 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    b = gtk.Button('Zoom out')
+    b = Gtk.Button('Zoom out')
 
     def on_clicked(button):
         view.zoom(1/1.2)
@@ -171,9 +171,9 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    v.add(gtk.Label('Misc:'))
+    v.add(Gtk.Label('Misc:'))
 
-    b = gtk.Button('Split line')
+    b = Gtk.Button('Split line')
 
     def on_clicked(button):
         if isinstance(view.focused_item, Line):
@@ -184,7 +184,7 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    b = gtk.Button('Delete focused')
+    b = Gtk.Button('Delete focused')
 
     def on_clicked(button):
         if view.focused_item:
@@ -194,8 +194,8 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    v.add(gtk.Label('State:'))
-    b = gtk.ToggleButton('Record')
+    v.add(Gtk.Label('State:'))
+    b = Gtk.ToggleButton('Record')
 
     def on_toggled(button):
         global undo_list
@@ -210,7 +210,7 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('toggled', on_toggled)
     v.add(b)
 
-    b = gtk.Button('Play back')
+    b = Gtk.Button('Play back')
     
     def on_clicked(self):
         global undo_list
@@ -230,9 +230,9 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    v.add(gtk.Label('Export:'))
+    v.add(Gtk.Label('Export:'))
 
-    b = gtk.Button('Write demo.png')
+    b = Gtk.Button('Write demo.png')
 
     def on_clicked(button):
         svgview = View(view.canvas)
@@ -260,7 +260,7 @@ def create_window(canvas, title, zoom=1.0):
     b.connect('clicked', on_clicked)
     v.add(b)
 
-    b = gtk.Button('Write demo.svg')
+    b = Gtk.Button('Write demo.svg')
 
     def on_clicked(button):
         svgview = View(view.canvas)
@@ -287,7 +287,7 @@ def create_window(canvas, title, zoom=1.0):
     v.add(b)
 
     
-    b = gtk.Button('Dump QTree')
+    b = Gtk.Button('Dump QTree')
 
     def on_clicked(button, li):
         view._qtree.dump()
@@ -296,7 +296,7 @@ def create_window(canvas, title, zoom=1.0):
     v.add(b)
 
 
-    b = gtk.Button('Pickle (save)')
+    b = Gtk.Button('Pickle (save)')
 
     def on_clicked(button, li):
         f = open('demo.pickled', 'w')
@@ -310,7 +310,7 @@ def create_window(canvas, title, zoom=1.0):
     v.add(b)
 
 
-    b = gtk.Button('Unpickle (load)')
+    b = Gtk.Button('Unpickle (load)')
 
     def on_clicked(button, li):
         f = open('demo.pickled', 'r')
@@ -326,7 +326,7 @@ def create_window(canvas, title, zoom=1.0):
     v.add(b)
 
 
-    b = gtk.Button('Unpickle (in place)')
+    b = Gtk.Button('Unpickle (in place)')
 
     def on_clicked(button, li):
         f = open('demo.pickled', 'r')
@@ -343,7 +343,7 @@ def create_window(canvas, title, zoom=1.0):
     v.add(b)
 
 
-    b = gtk.Button('Reattach (in place)')
+    b = Gtk.Button('Reattach (in place)')
 
     def on_clicked(button, li):
         view.canvas = None
@@ -355,19 +355,19 @@ def create_window(canvas, title, zoom=1.0):
 
     # Add the actual View:
 
-    t = gtk.Table(2,2)
+    t = Gtk.Table(2,2)
     h.add(t)
 
-    w.connect('destroy', gtk.main_quit)
+    w.connect('destroy', Gtk.main_quit)
 
     view.canvas = canvas
     view.zoom(zoom)
     view.set_size_request(150, 120)
-    hs = gtk.HScrollbar(view.hadjustment)
-    vs = gtk.VScrollbar(view.vadjustment)
+    hs = Gtk.HScrollbar(view.hadjustment)
+    vs = Gtk.VScrollbar(view.vadjustment)
     t.attach(view, 0, 1, 0, 1)
-    t.attach(hs, 0, 1, 1, 2, xoptions=gtk.FILL, yoptions=gtk.FILL)
-    t.attach(vs, 1, 2, 0, 1, xoptions=gtk.FILL, yoptions=gtk.FILL)
+    t.attach(hs, 0, 1, 1, 2, xoptions=Gtk.FILL, yoptions=Gtk.FILL)
+    t.attach(vs, 1, 2, 0, 1, xoptions=Gtk.FILL, yoptions=Gtk.FILL)
 
     w.show_all()
     
@@ -480,7 +480,7 @@ def main():
 
     create_window(c, 'View created after')
 
-    gtk.main()
+    Gtk.main()
 
 
 if __name__ == '__main__':

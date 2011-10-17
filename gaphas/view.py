@@ -517,29 +517,73 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
                         | Gdk.EventMask.KEY_RELEASE_MASK
                         | Gdk.EventMask.SCROLL_MASK)
 
-        self._hadjustment = None
-        self._vadjustment = None
         self._hadjustment_handler_id = None
         self._vadjustment_handler_id = None
-
-#        self.emit('set-scroll-adjustments', hadjustment, vadjustment)
-        self.do_set_scroll_adjustments(hadjustment, vadjustment)
+        self._hadjustment = None
+        self._vadjustment = None
+        self.hadjustment = hadjustment
+        self.vadjustment = vadjustment
+        self._hscroll_policy = Gtk.ScrollablePolicy.NATURAL
+        self._vscroll_policy = Gtk.ScrollablePolicy.NATURAL
 
         self._set_tool(DefaultTool())
         
         # Set background to white.
         self.modify_bg(Gtk.StateType.NORMAL, Gdk.Color(0xFFFF, 0xFFFF, 0xFFFF))
 
+
     def _set_hadjustment(self, hadjustment):
-        self.do_set_scroll_adjustments(hadjustment, self._vadjustment)
+        if self._hadjustment_handler_id:
+            self._hadjustment.disconnect(self._hadjustment_handler_id)
+            self._hadjustment_handler_id = None
 
-    hadjustment = GObject.property(lambda s: s._hadjustment, _set_hadjustment)
-    
+        self._hadjustment = hadjustment or Gtk.Adjustment()
+
+        self._hadjustment_handler_id = \
+                        self._hadjustment.connect('value-changed',
+                                                  self.on_adjustment_changed)
+        self.update_adjustments()
+
+    hadjustment = GObject.property(type=Gtk.Adjustment,
+                        getter=lambda s: s._hadjustment,
+                        setter=_set_hadjustment)                     
+
+
     def _set_vadjustment(self, vadjustment):
-        self.do_set_scroll_adjustments(self._hadjustment, vadjustment)
+        if self._vadjustment_handler_id:
+            self._vadjustment.disconnect(self._vadjustment_handler_id)
+            self._vadjustment_handler_id = None
 
-    vadjustment = GObject.property(lambda s: s._vadjustment, _set_vadjustment)
+        self._vadjustment = vadjustment or Gtk.Adjustment()
+
+        self._vadjustment_handler_id = \
+                        self._vadjustment.connect('value-changed',
+                                                  self.on_adjustment_changed)
+        self.update_adjustments()
+
+    vadjustment = GObject.property(type=Gtk.Adjustment,
+                        getter=lambda s: s._vadjustment,
+                        setter=_set_vadjustment)                     
+
+
+    def _set_hscroll_policy(self, scroll_policy):
+        self._hscroll_policy = scroll_policy
+
+    hscroll_policy = GObject.property(type=Gtk.ScrollablePolicy,
+                        getter=lambda s: s._hscroll_policy,
+                        setter=_set_hscroll_policy,
+                        default=Gtk.ScrollablePolicy.NATURAL)
+
+
+    def _set_vscroll_policy(self, scroll_policy):
+        self._vscroll_policy = scroll_policy
+
+    vscroll_policy = GObject.property(type=Gtk.ScrollablePolicy,
+                        getter=lambda s: s._vscroll_policy,
+                        setter=_set_vscroll_policy,
+                        default=Gtk.ScrollablePolicy.NATURAL)
     
+
     def emit(self, *args, **kwargs):
         """
         Delegate signal emissions to the DrawingArea (=GTK+)
@@ -580,35 +624,6 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
     tool = property(lambda s: s._tool, _set_tool)
 
 
-    hadjustment = property(lambda s: s._hadjustment)
-
-
-    vadjustment = property(lambda s: s._vadjustment)
-
-    
-    def set_scroll_adjustments(self, hadjustment, vadjustment):
-        self.emit('set-scroll-adjustments', hadjustment, vadjustment)
-
-    def do_set_scroll_adjustments(self, hadjustment, vadjustment):
-        if self._hadjustment_handler_id:
-            self._hadjustment.disconnect(self._hadjustment_handler_id)
-            self._hadjustment_handler_id = None
-        if self._vadjustment_handler_id:
-            self._vadjustment.disconnect(self._vadjustment_handler_id)
-            self._vadjustment_handler_id = None
-
-        self._hadjustment = hadjustment or Gtk.Adjustment()
-        self._vadjustment = vadjustment or Gtk.Adjustment()
-
-        self._hadjustment_handler_id = \
-                        self._hadjustment.connect('value-changed',
-                                                  self.on_adjustment_changed)
-        self._vadjustment_handler_id = \
-                        self._vadjustment.connect('value-changed',
-                                                  self.on_adjustment_changed)
-        self.update_adjustments()
-
-
     def zoom(self, factor):
         """
         Zoom in/out by factor ``factor``.
@@ -619,8 +634,11 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
 
     @async(single=True)
     def update_adjustments(self, allocation=None):
+        if not self._hadjustment or not self._vadjustment:
+            return
+
         if not allocation:
-            allocation = self.allocation
+            allocation = self.get_allocation()
 
         hadjustment = self._hadjustment
         vadjustment = self._vadjustment
@@ -655,8 +673,8 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         vadjustment.step_increment = ah / 10
 
         # set position
-        if v.x != hadjustment.value or v.y != vadjustment.value:
-            hadjustment.value, vadjustment.value = v.x, v.y
+        if v.x != hadjustment.props.value or v.y != vadjustment.props.value:
+            hadjustment.props.value, vadjustment.props.value = v.x, v.y
 
 
     def queue_draw_item(self, *items):
@@ -697,7 +715,7 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         """
         Redraw the entire view.
         """
-        a = self.allocation
+        a = self.get_allocation()
         super(GtkView, self).queue_draw_area(0, 0, a.width, a.height)
 
 
@@ -735,7 +753,7 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         """
         Update view status according to the items updated by the canvas.
         """
-        if not self.window: return
+        if not self.get_window(): return
 
         dirty_items = self._dirty_items
         dirty_matrix_items = self._dirty_matrix_items
@@ -777,7 +795,7 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         """
         Update bounding box is not necessary.
         """
-        cr = self.window.cairo_create()
+        cr = self.get_window().cairo_create()
 
         cr.save()
         cr.rectangle(0, 0, 0, 0)
@@ -800,7 +818,7 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         self._qtree.resize((0, 0, allocation.width, allocation.height))
        
 
-    def do_realize(self):
+    def xdo_realize(self):
         Gtk.DrawingArea.do_realize(self)
 
         # Ensure updates are propagated
@@ -809,7 +827,7 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         if self._canvas:
             self.request_update(self._canvas.get_all_items())
 
-    def do_unrealize(self):
+    def xdo_unrealize(self):
         if self.canvas:
             # Although Item._matrix_{i2v|v2i} keys are automatically removed
             # (weak refs), better do it explicitly to be sure.
@@ -823,20 +841,22 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
 
         Gtk.DrawingArea.do_unrealize(self)
 
-    def do_expose_event(self, event):
+
+    def do_draw(self, cr):
         """
         Render canvas to the screen.
         """
         if not self._canvas:
             return
 
-        area = event.area
-        x, y, w, h = area.x, area.y, area.width, area.height
-        cr = self.window.cairo_create()
+        #area = event.area
+        #x, y, w, h = area.x, area.y, area.width, area.height
+        x, y = 0
+        w, h = self.get_allocated_width(), self.get_allocated_height()
 
         # Draw no more than nessesary.
-        cr.rectangle(x, y, w, h)
-        cr.clip()
+        #cr.rectangle(x, y, w, h)
+        #cr.clip()
 
         area = Rectangle(x, y, width=w, height=h)
         self._painter.paint(Context(cairo=cr,
