@@ -17,12 +17,12 @@ It sports a small canvas and some trivial operations:
 __version__ = "$Revision$"
 # $HeadURL$
 
-try:
-    import pygtk
-except ImportError:
-    pass
-else:
-    pyGtk.require('2.0') 
+#try:
+#    import pygtk
+#except ImportError:
+#    pass
+#else:
+#    pygtk.require('2.0') 
 
 import math
 from gi.repository import Gtk
@@ -124,6 +124,7 @@ def create_window(canvas, title, zoom=1.0):
     w.set_title(title)
     h = Gtk.HBox()
     w.add(h)
+    h.show()
 
     # VBox contains buttons that can be used to manipulate the canvas:
     v = Gtk.VBox()
@@ -132,9 +133,9 @@ def create_window(canvas, title, zoom=1.0):
     f = Gtk.Frame()
     f.set_property('border-width', 1)
     f.add(v)
-    h.pack_start(f, False, True, 0)
+    h.pack_start(f, expand=True, fill=True, padding=0)
 
-    v.add(Gtk.Label(label='Item placement:'))
+    v.add(Gtk.Label('Item placement:'))
     
     b = Gtk.Button('Add box')
 
@@ -144,6 +145,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked, view)
     v.add(b)
+    b.show()
 
     b = Gtk.Button('Add line')
 
@@ -152,8 +154,9 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
-    v.add(Gtk.Label(label='Zooming:'))
+    v.add(Gtk.Label('Zooming:'))
    
     b = Gtk.Button('Zoom in')
 
@@ -162,6 +165,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
     b = Gtk.Button('Zoom out')
 
@@ -170,8 +174,9 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
-    v.add(Gtk.Label(label='Misc:'))
+    v.add(Gtk.Label('Misc:'))
 
     b = Gtk.Button('Split line')
 
@@ -183,6 +188,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
     b = Gtk.Button('Delete focused')
 
@@ -193,8 +199,9 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
-    v.add(Gtk.Label(label='State:'))
+    v.add(Gtk.Label('State:'))
     b = Gtk.ToggleButton('Record')
 
     def on_toggled(button):
@@ -209,6 +216,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('toggled', on_toggled)
     v.add(b)
+    b.show()
 
     b = Gtk.Button('Play back')
     
@@ -229,8 +237,9 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
-    v.add(Gtk.Label(label='Export:'))
+    v.add(Gtk.Label('Export:'))
 
     b = Gtk.Button('Write demo.png')
 
@@ -259,6 +268,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
     b = Gtk.Button('Write demo.svg')
 
@@ -285,6 +295,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked)
     v.add(b)
+    b.show()
 
     
     b = Gtk.Button('Dump QTree')
@@ -308,6 +319,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked, [0])
     v.add(b)
+    b.show()
 
 
     b = Gtk.Button('Unpickle (load)')
@@ -324,6 +336,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked, [0])
     v.add(b)
+    b.show()
 
 
     b = Gtk.Button('Unpickle (in place)')
@@ -341,6 +354,7 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked, [0])
     v.add(b)
+    b.show()
 
 
     b = Gtk.Button('Reattach (in place)')
@@ -351,26 +365,32 @@ def create_window(canvas, title, zoom=1.0):
 
     b.connect('clicked', on_clicked, [0])
     v.add(b)
-
+    b.show()
+    v.show()
 
     # Add the actual View:
 
-    t = Gtk.Table(2,2)
-    h.add(t)
+    #t = Gtk.Table(2,2)
+    #h.add(t)
 
     w.connect('destroy', Gtk.main_quit)
 
     view.canvas = canvas
     view.zoom(zoom)
     view.set_size_request(150, 120)
-    hs = Gtk.HScrollbar(view.hadjustment)
-    vs = Gtk.VScrollbar(view.vadjustment)
-    t.attach(view, 0, 1, 0, 1)
-    t.attach(hs, 0, 1, 1, 2, xoptions=Gtk.AttachOptions.FILL, yoptions=Gtk.AttachOptions.FILL)
-    t.attach(vs, 1, 2, 0, 1, xoptions=Gtk.AttachOptions.FILL, yoptions=Gtk.AttachOptions.FILL)
-
-    w.show_all()
-    
+    s = Gtk.ScrolledWindow()
+    #s.add(view)
+    h.pack_start(s, expand=True, fill=True, padding=0)
+    s.show()
+    #view.show()
+    #hs = Gtk.HScrollbar(view.hadjustment)
+    #vs = Gtk.VScrollbar(view.vadjustment)
+    #t.attach(view, 0, 1, 0, 1)
+    #t.attach(hs, 0, 1, 1, 2, xoptions=Gtk.FILL, yoptions=Gtk.FILL)
+    #t.attach(vs, 1, 2, 0, 1, xoptions=Gtk.FILL, yoptions=Gtk.FILL)
+    print 'show all'
+    w.show()
+    print 'done'
     def handle_changed(view, item, what):
         print what, 'changed: ', item
 

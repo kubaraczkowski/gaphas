@@ -5,8 +5,7 @@ This module contains everything to display a Canvas on a screen.
 __version__ = "$Revision$"
 # $HeadURL$
 
-from gi.repository import GObject
-from gi.repository import Gdk, Gtk
+from gi.repository import GObject, Gdk, Gtk
 from cairo import Matrix
 from canvas import Context
 from geometry import Rectangle
@@ -467,8 +466,7 @@ class View(object):
 
 
 
-class GtkView(Gtk.DrawingArea, View):
-#class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
+class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
     # NOTE: Inherit from GTK+ class first, otherwise BusErrors may occur!
     """
     GTK+ widget for rendering a canvas.Canvas to a screen.
@@ -486,8 +484,8 @@ class GtkView(Gtk.DrawingArea, View):
     
     # Signals: emited after the change takes effect.
     __gsignals__ = {
-#        'set-scroll-adjustments': (GObject.SignalFlags.RUN_LAST, None,
-#                      (Gtk.Adjustment, Gtk.Adjustment)),
+        #'set-scroll-adjustments': (GObject.SignalFlags.RUN_LAST, None,
+        #              (Gtk.Adjustment, Gtk.Adjustment)),
         'dropzone-changed': (GObject.SignalFlags.RUN_LAST, None,
                       (GObject.TYPE_PYOBJECT,)),
         'hover-changed': (GObject.SignalFlags.RUN_LAST, None,
@@ -522,14 +520,14 @@ class GtkView(Gtk.DrawingArea, View):
     }
 
     def __init__(self, canvas=None, hadjustment=None, vadjustment=None):
-        GObject.GObject.__init__(self)
+        Gtk.DrawingArea.__init__(self)
 
         self._dirty_items = set()
         self._dirty_matrix_items = set()
 
         View.__init__(self, canvas)
 
-        self.set_can_focus(True)
+        self.set_property('can-focus', True)
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK
                         | Gdk.EventMask.BUTTON_RELEASE_MASK
                         | Gdk.EventMask.POINTER_MOTION_MASK
@@ -537,38 +535,72 @@ class GtkView(Gtk.DrawingArea, View):
                         | Gdk.EventMask.KEY_RELEASE_MASK
                         | Gdk.EventMask.SCROLL_MASK)
 
-        self._hadjustment = None
-        self._vadjustment = None
         self._hadjustment_handler_id = None
         self._vadjustment_handler_id = None
-
-        self.do_set_scroll_adjustments(hadjustment, vadjustment)
+        self._hadjustment = None
+        self._vadjustment = None
+        self.hadjustment = hadjustment
+        self.vadjustment = vadjustment
+        self._hscroll_policy = Gtk.ScrollablePolicy.NATURAL
+        self._vscroll_policy = Gtk.ScrollablePolicy.NATURAL
 
         self._set_tool(DefaultTool())
         
         # Set background to white.
-        self.modify_bg(Gtk.StateType.NORMAL, Gdk.color_parse('#FFF')[1])
+        self.modify_bg(Gtk.StateType.NORMAL, Gdk.Color(0xFFFF, 0xFFFF, 0xFFFF))
 
-    def do_set_properties(self, pspec, value):
-        if pspec.name == 'hadjustment':
-            self.do_set_scroll_adjustments(self._hadjustment, value)
-        elif pspec.name == 'vadjustment':
-            self.do_set_scroll_adjustments(value, self._vadjustment)
-        else:
-            raise AttributeError, 'Unknown property %s' % pspec.name
 
-    def do_get_properties(self, pspec, value):
-        if pspec.name == 'hadjustment':
-            return self._hadjustment
-        elif pspec.name == 'vadjustment':
-            return self._vadjustment
-        else:
-            raise AttributeError, 'Unknown property %s' % pspec.name
+    def _set_hadjustment(self, hadjustment):
+        if self._hadjustment_handler_id:
+            self._hadjustment.disconnect(self._hadjustment_handler_id)
+            self._hadjustment_handler_id = None
 
-    def _set_hadjustment(self, adj):
-        self._hadjustment = adj
+        self._hadjustment = hadjustment or Gtk.Adjustment()
 
-    hadjustment = GObject.property(getter=lambda s: s._hadjustment, setter=_set_hadjustment)
+        self._hadjustment_handler_id = \
+                        self._hadjustment.connect('value-changed',
+                                                  self.on_adjustment_changed)
+        self.update_adjustments()
+
+    hadjustment = GObject.property(type=Gtk.Adjustment,
+                        getter=lambda s: s._hadjustment,
+                        setter=_set_hadjustment)                     
+
+
+    def _set_vadjustment(self, vadjustment):
+        if self._vadjustment_handler_id:
+            self._vadjustment.disconnect(self._vadjustment_handler_id)
+            self._vadjustment_handler_id = None
+
+        self._vadjustment = vadjustment or Gtk.Adjustment()
+
+        self._vadjustment_handler_id = \
+                        self._vadjustment.connect('value-changed',
+                                                  self.on_adjustment_changed)
+        self.update_adjustments()
+
+    vadjustment = GObject.property(type=Gtk.Adjustment,
+                        getter=lambda s: s._vadjustment,
+                        setter=_set_vadjustment)                     
+
+
+    def _set_hscroll_policy(self, scroll_policy):
+        self._hscroll_policy = scroll_policy
+
+    hscroll_policy = GObject.property(type=Gtk.ScrollablePolicy,
+                        getter=lambda s: s._hscroll_policy,
+                        setter=_set_hscroll_policy,
+                        default=Gtk.ScrollablePolicy.NATURAL)
+
+
+    def _set_vscroll_policy(self, scroll_policy):
+        self._vscroll_policy = scroll_policy
+
+    vscroll_policy = GObject.property(type=Gtk.ScrollablePolicy,
+                        getter=lambda s: s._vscroll_policy,
+                        setter=_set_vscroll_policy,
+                        default=Gtk.ScrollablePolicy.NATURAL)
+    
 
     def emit(self, *args, **kwargs):
         """
@@ -610,32 +642,6 @@ class GtkView(Gtk.DrawingArea, View):
     tool = property(lambda s: s._tool, _set_tool)
 
 
-    hadjustment = property(lambda s: s._hadjustment)
-
-
-    vadjustment = property(lambda s: s._vadjustment)
-
-    
-    def do_set_scroll_adjustments(self, hadjustment, vadjustment):
-        if self._hadjustment_handler_id:
-            self._hadjustment.disconnect(self._hadjustment_handler_id)
-            self._hadjustment_handler_id = None
-        if self._vadjustment_handler_id:
-            self._vadjustment.disconnect(self._vadjustment_handler_id)
-            self._vadjustment_handler_id = None
-
-        self._hadjustment = hadjustment or Gtk.Adjustment()
-        self._vadjustment = vadjustment or Gtk.Adjustment()
-
-        self._hadjustment_handler_id = \
-                        self._hadjustment.connect('value-changed',
-                                                  self.on_adjustment_changed)
-        self._vadjustment_handler_id = \
-                        self._vadjustment.connect('value-changed',
-                                                  self.on_adjustment_changed)
-        self.update_adjustments()
-
-
     def zoom(self, factor):
         """
         Zoom in/out by factor ``factor``.
@@ -646,6 +652,9 @@ class GtkView(Gtk.DrawingArea, View):
 
     @async(single=True)
     def update_adjustments(self, allocation=None):
+        if not self._hadjustment or not self._vadjustment:
+            return
+
         if not allocation:
             allocation = self.get_allocation()
 
@@ -683,7 +692,7 @@ class GtkView(Gtk.DrawingArea, View):
 
         # set position
         if v.x != hadjustment.props.value or v.y != vadjustment.props.value:
-            hadjustment.value, vadjustment.value = v.x, v.y
+            hadjustment.props.value, vadjustment.props.value = v.x, v.y
 
 
     def queue_draw_item(self, *items):
@@ -827,7 +836,7 @@ class GtkView(Gtk.DrawingArea, View):
         self._qtree.resize((0, 0, allocation.width, allocation.height))
        
 
-    def do_realize(self):
+    def xdo_realize(self):
         Gtk.DrawingArea.do_realize(self)
 
         # Ensure updates are propagated
@@ -836,7 +845,7 @@ class GtkView(Gtk.DrawingArea, View):
         if self._canvas:
             self.request_update(self._canvas.get_all_items())
 
-    def do_unrealize(self):
+    def xdo_unrealize(self):
         if self.canvas:
             # Although Item._matrix_{i2v|v2i} keys are automatically removed
             # (weak refs), better do it explicitly to be sure.
@@ -850,8 +859,8 @@ class GtkView(Gtk.DrawingArea, View):
 
         Gtk.DrawingArea.do_unrealize(self)
 
+
     def do_draw(self, cr):
-    #def do_expose_event(self, event):
         """
         Render canvas to the screen.
         """
@@ -860,7 +869,8 @@ class GtkView(Gtk.DrawingArea, View):
 
         #area = event.area
         #x, y, w, h = area.x, area.y, area.width, area.height
-        #cr = self.window.cairo_create()
+        x, y = 0
+        w, h = self.get_allocated_width(), self.get_allocated_height()
 
         # Draw no more than nessesary.
         #cr.rectangle(x, y, w, h)
@@ -934,7 +944,7 @@ class GtkView(Gtk.DrawingArea, View):
 #   GtkWarning: gtk_scrolled_window_add(): cannot add non scrollable widget
 #   use gtk_scrolled_window_add_with_viewport() instead
 
-# TODO: Implement Gtk.Scrollable
+# TODO: Implement Gtk.Scrollable in GTK+ 3
 #GtkView.set_set_scroll_adjustments_signal("set-scroll-adjustments")
 
 

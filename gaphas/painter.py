@@ -144,7 +144,7 @@ class ItemPainter(Painter):
     def paint(self, context):
         cairo = context.cairo
         cairo.set_tolerance(TOLERANCE)
-        cairo.set_line_join(LINE_JOIN_ROUND)
+        #cairo.set_line_join(LINE_JOIN_ROUND)
         self._draw_items(context.items, cairo, context.area)
 
 
@@ -312,7 +312,7 @@ class HandlePainter(Painter):
                 r, g, b = 0, 0, 1
 
             cairo.identity_matrix()
-            cairo.set_antialias(ANTIALIAS_NONE)
+            #cairo.set_antialias(ANTIALIAS_NONE)
             cairo.translate(*i2v.transform_point(*h.pos))
             cairo.rectangle(-4, -4, 8, 8)
             if inner:

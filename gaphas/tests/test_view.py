@@ -20,7 +20,7 @@ class ViewTestCase(unittest.TestCase):
         """
         canvas = Canvas()
 
-        window1 = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        window1 = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         view1 = GtkView(canvas=canvas)
         window1.add(view1)
         view1.realize()
@@ -37,7 +37,7 @@ class ViewTestCase(unittest.TestCase):
         line.matrix.translate(30, 60)
         canvas.add(line)
 
-        window2 = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        window2 = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         view2 = GtkView(canvas=canvas)
         window2.add(view2)
         window2.show_all()
@@ -61,7 +61,11 @@ class ViewTestCase(unittest.TestCase):
         """
         canvas = Canvas()
         view = GtkView(canvas)
+<<<<<<< HEAD
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+=======
+        window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+>>>>>>> b1c65c8a840f085529c3f8c9f79103fe60941e5e
         window.add(view)
         window.show_all()
 
@@ -88,7 +92,11 @@ class ViewTestCase(unittest.TestCase):
     def test_item_removal(self):
         canvas = Canvas()
         view = GtkView(canvas)
+<<<<<<< HEAD
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+=======
+        window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+>>>>>>> b1c65c8a840f085529c3f8c9f79103fe60941e5e
         window.add(view)
         window.show_all()
 
@@ -135,7 +143,11 @@ class ViewTestCase(unittest.TestCase):
         assert not box._matrix_i2v.has_key(view)
         assert not box._matrix_v2i.has_key(view)
 
+<<<<<<< HEAD
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+=======
+        window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+>>>>>>> b1c65c8a840f085529c3f8c9f79103fe60941e5e
         window.add(view)
         window.show_all()
 
@@ -162,7 +174,11 @@ class ViewTestCase(unittest.TestCase):
         """
         canvas = Canvas()
         view = GtkView(canvas)
+<<<<<<< HEAD
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+=======
+        window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+>>>>>>> b1c65c8a840f085529c3f8c9f79103fe60941e5e
         window.add(view)
         window.show_all()
 

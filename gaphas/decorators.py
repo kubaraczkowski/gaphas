@@ -6,9 +6,9 @@ __version__ = "$Revision$"
 # $HeadURL$
 
 import threading
-from gi.repository import GObject
-from gobject import PRIORITY_HIGH, PRIORITY_HIGH_IDLE, PRIORITY_DEFAULT, \
-        PRIORITY_DEFAULT_IDLE, PRIORITY_LOW
+from gi.repository import GLib, GObject
+from gi.repository.GLib import PRIORITY_HIGH, PRIORITY_HIGH_IDLE, \
+        PRIORITY_DEFAULT, PRIORITY_DEFAULT_IDLE, PRIORITY_LOW
 
 
 DEBUG_ASYNC = False
@@ -36,26 +36,26 @@ class async(object):
     Simple method:
     
     >>> class A(object):
-    ...     @async(single=False, priority=GObject.PRIORITY_HIGH)
+    ...     @async(single=False, priority=PRIORITY_HIGH)
     ...     def a(self):
-    ...         print 'idle-a', GObject.main_depth()
+    ...         print 'idle-a', GLib.main_depth()
     
     Methods can also set single mode to True (the method is only scheduled one).
 
     >>> class B(object):
     ...     @async(single=True)
     ...     def b(self):
-    ...         print 'idle-b', GObject.main_depth()
+    ...         print 'idle-b', GLib.main_depth()
 
     Also a timeout property can be provided:
 
     >>> class C(object):
     ...     @async(timeout=50)
     ...     def c1(self):
-    ...         print 'idle-c1', GObject.main_depth()
+    ...         print 'idle-c1', GLib.main_depth()
     ...     @async(single=True, timeout=60)
     ...     def c2(self):
-    ...         print 'idle-c2', GObject.main_depth()
+    ...         print 'idle-c2', GLib.main_depth()
 
     This is a helper function used to test classes A and B from within the GTK+
     main loop:
@@ -95,7 +95,7 @@ class async(object):
     executed once.
     """
 
-    def __init__(self, single=False, timeout=0, priority=GObject.PRIORITY_DEFAULT):
+    def __init__(self, single=False, timeout=0, priority=PRIORITY_DEFAULT):
         self.single = single
         self.timeout = timeout
         self.priority = priority
@@ -117,7 +117,7 @@ class async(object):
         def wrapper(*args, **kwargs):
             global getattr, setattr, delattr
             # execute directly if we're not in the main loop.
-            if GObject.main_depth() == 0:
+            if GLib.main_depth() == 0:
                 return func(*args, **kwargs)
             elif not self.single:
                 def async_wrapper():
