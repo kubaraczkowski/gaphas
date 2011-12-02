@@ -379,17 +379,17 @@ def create_window(canvas, title, zoom=1.0):
     view.zoom(zoom)
     view.set_size_request(150, 120)
     s = Gtk.ScrolledWindow()
-    #s.add(view)
+    s.add(view)
     h.pack_start(s, expand=True, fill=True, padding=0)
     s.show()
-    #view.show()
+    view.show()
     #hs = Gtk.HScrollbar(view.hadjustment)
     #vs = Gtk.VScrollbar(view.vadjustment)
     #t.attach(view, 0, 1, 0, 1)
     #t.attach(hs, 0, 1, 1, 2, xoptions=Gtk.FILL, yoptions=Gtk.FILL)
     #t.attach(vs, 1, 2, 0, 1, xoptions=Gtk.FILL, yoptions=Gtk.FILL)
     print 'show all'
-    w.show()
+    w.show_all()
     print 'done'
     def handle_changed(view, item, what):
         print what, 'changed: ', item

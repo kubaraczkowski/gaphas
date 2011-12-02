@@ -281,13 +281,13 @@ class ItemTool(Tool):
         
         # Deselect all items unless CTRL or SHIFT is pressed
         # or the item is already selected.
-        if not (event.get_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
+        if not (event.get_state()[1] & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
                 or item in view.selected_items):
             del view.selected_items
 
         if item:
             if view.hovered_item in view.selected_items and \
-                    event.get_state() & Gdk.ModifierType.CONTROL_MASK:
+                    event.get_state()[1] & Gdk.ModifierType.CONTROL_MASK:
                 selection = Selection(item, view)
                 selection.unselect()
             else:
@@ -309,7 +309,7 @@ class ItemTool(Tool):
         Normally do nothing.
         If a button is pressed move the items around.
         """
-        if event.get_state() & Gdk.EventMask.BUTTON_PRESS_MASK:
+        if event.get_state()[1] & Gdk.ModifierType.BUTTON1_MASK:
 
             if not self._movable_items:
                 self._movable_items = set(self.movable_items())
@@ -378,7 +378,7 @@ class HandleTool(Tool):
             # Deselect all items unless CTRL or SHIFT is pressed
             # or the item is already selected.
 ### TODO: duplicate from ItemTool
-            if not (event.get_state() & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
+            if not (event.get_state()[1] & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK)
                     or view.hovered_item in view.selected_items):
                 del view.selected_items
 ###/
@@ -415,7 +415,7 @@ class HandleTool(Tool):
         hovered-item.
         """
         view = self.view
-        if self.grabbed_handle and event.get_state() & Gdk.EventMask.BUTTON_PRESS_MASK:
+        if self.grabbed_handle and event.get_state()[1] & Gdk.ModifierType.BUTTON1_MASK:
             canvas = view.canvas
             item = self.grabbed_item
             handle = self.grabbed_handle
@@ -448,7 +448,7 @@ class RubberbandTool(Tool):
         return True
 
     def on_motion_notify(self, event):
-        if event.get_state() & Gdk.EventMask.BUTTON_PRESS_MASK:
+        if event.get_state()[1] & Gdk.ModifierType.BUTTON1_MASK:
             view = self.view
             self.queue_draw(view)
             self.x1, self.y1 = event.x, event.y
@@ -483,7 +483,7 @@ class PanTool(Tool):
         self.speed = 10
 
     def on_button_press(self, event):
-        if not event.get_state() & PAN_MASK == PAN_VALUE:
+        if not event.get_state()[1] & PAN_MASK == PAN_VALUE:
             return False
         if event.button == 2:
             self.x0, self.y0 = event.x, event.y
@@ -494,7 +494,8 @@ class PanTool(Tool):
         return True
 
     def on_motion_notify(self, event):
-        if event.get_state() & Gdk.EventMask.BUTTON2_MASK:
+        print 'event state', event.get_state()
+        if event.get_state()[1] & Gdk.ModifierType.BUTTON2_MASK:
             view = self.view
             self.x1, self.y1 = event.x, event.y
             dx = self.x1 - self.x0
@@ -508,7 +509,7 @@ class PanTool(Tool):
 
     def on_scroll(self, event):
         # Ensure no modifiers
-        if not event.get_state() & PAN_MASK == PAN_VALUE:
+        if not event.get_state()[1] & PAN_MASK == PAN_VALUE:
             return False
         view = self.view
         direction = event.direction
@@ -543,7 +544,7 @@ class ZoomTool(Tool):
 
     def on_button_press(self, event):
         if event.button == 2 \
-                and event.get_state() & ZOOM_MASK == ZOOM_VALUE:
+                and event.get_state()[1] & ZOOM_MASK == ZOOM_VALUE:
             self.x0 = event.x
             self.y0 = event.y
             self.lastdiff = 0
@@ -554,8 +555,8 @@ class ZoomTool(Tool):
         return True
 
     def on_motion_notify(self, event):
-        if event.get_state() & ZOOM_MASK == ZOOM_VALUE \
-                and event.get_state() & Gdk.EventMask.BUTTON2_MASK:
+        if event.get_state()[1] & ZOOM_MASK == ZOOM_VALUE \
+                and event.get_state()[1] & Gdk.ModifierType.BUTTON2_MASK:
             view = self.view
             dy = event.y - self.y0
 
@@ -582,7 +583,7 @@ class ZoomTool(Tool):
             return True
 
     def on_scroll(self, event):
-        if event.get_state() & Gdk.EventMask.CONTROL_MASK:
+        if event.get_state()[1] & Gdk.ModifierType.CONTROL_MASK:
             view = self.view
             sx = view._matrix[0]
             sy = view._matrix[3]
@@ -772,7 +773,7 @@ class ConnectHandleTool(HandleTool):
 #    def on_motion_notify(self, event):
 #        super(ConnectHandleTool, self).on_motion_notify(event)
 #        handle = self.grabbed_handle
-#        if handle and event.get_state() & Gdk.EventMask.BUTTON_PRESS_MASK:
+#        if handle and event.get_state()[1] & Gdk.ModifierType.BUTTON1_MASK:
 #            if handle.connectable:
 #                self.glue(self.grabbed_item, handle, (event.x, event.y))
 #

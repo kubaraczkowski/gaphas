@@ -846,19 +846,20 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         """
         Render canvas to the screen.
         """
+        print 'GtkView.render', cr
         if not self._canvas:
             return
 
         #area = event.area
         #x, y, w, h = area.x, area.y, area.width, area.height
-        x, y = 0
+        x, y = 0, 0
         w, h = self.get_allocated_width(), self.get_allocated_height()
 
         # Draw no more than nessesary.
         #cr.rectangle(x, y, w, h)
         #cr.clip()
 
-        #area = Rectangle(x, y, width=w, height=h)
+        area = Rectangle(x, y, width=w, height=h)
         self._painter.paint(Context(cairo=cr,
                                     items=self.get_items_in_rectangle(area),
                                     area=None))
