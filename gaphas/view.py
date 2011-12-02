@@ -22,6 +22,7 @@ DEBUG_DRAW_QUADTREE = False
 # The default cursor (use in case of a cursor reset)
 DEFAULT_CURSOR = Gdk.CursorType.LEFT_PTR
 
+print 'Gtk:', Gtk
 
 class View(object):
     """
@@ -498,25 +499,6 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
                       ()),
         'painter-changed': (GObject.SignalFlags.RUN_LAST, None,
                       ())
-    }
-
-    __gproperties__ = {
-#        'hadjustment': 'override',
-#        'vadjustment': 'override',
-#        'hscroll-policy': 'override',
-#        'vscroll-policy': 'override'
-        'hadjustment': (Gtk.Adjustment,
-                        'hadjustment prop', 
-                        'hadjustment prop', 
-                        GObject.PARAM_READWRITE),
-        'vadjustment': (Gtk.Adjustment,
-                        'vadjustment prop', 
-                        'vadjustment prop', 
-                        GObject.PARAM_READWRITE),
-#        'hscroll-policy': (Gtk.ScrollablePolicy,
-#                        'GtkScrollable.hscroll-policy',
-#                        '',
-#                        GObject.PARAM_READWRITE),
     }
 
     def __init__(self, canvas=None, hadjustment=None, vadjustment=None):
