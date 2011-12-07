@@ -817,29 +817,32 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         self.update_adjustments(allocation)
         self._qtree.resize((0, 0, allocation.width, allocation.height))
        
+        
+#    def do_realize(self):
+#        print 'In ralize'
+#        Gtk.DrawingArea.do_realize(self)
+#
+#        # Ensure updates are propagated
+#        self._canvas.register_view(self)
+#
+#        if self._canvas:
+#            self.request_update(self._canvas.get_all_items())
+#        print 'end realize'
 
-    def xdo_realize(self):
-        Gtk.DrawingArea.do_realize(self)
 
-        # Ensure updates are propagated
-        self._canvas.register_view(self)
-
-        if self._canvas:
-            self.request_update(self._canvas.get_all_items())
-
-    def xdo_unrealize(self):
-        if self.canvas:
-            # Although Item._matrix_{i2v|v2i} keys are automatically removed
-            # (weak refs), better do it explicitly to be sure.
-            self._clear_matrices()
-        self._qtree.clear()
-
-        self._dirty_items.clear()
-        self._dirty_matrix_items.clear()
-
-        self._canvas.unregister_view(self)
-
-        Gtk.DrawingArea.do_unrealize(self)
+#    def do_unrealize(self):
+#        if self.canvas:
+#            # Although Item._matrix_{i2v|v2i} keys are automatically removed
+#            # (weak refs), better do it explicitly to be sure.
+#            self._clear_matrices()
+#        self._qtree.clear()
+#
+#        self._dirty_items.clear()
+#        self._dirty_matrix_items.clear()
+#
+#        self._canvas.unregister_view(self)
+#
+#        Gtk.DrawingArea.do_unrealize(self)
 
 
     def do_draw(self, cr):
@@ -919,16 +922,6 @@ class GtkView(Gtk.DrawingArea, Gtk.Scrollable, View):
         self.request_update((), self._canvas.get_all_items())
 
         self.queue_draw_refresh()
-
-
-# Set a signal to set adjustments. This way a ScrolledWindow can set its own
-# Adjustment objects on the View. Otherwise a warning is shown:
-#
-#   GtkWarning: gtk_scrolled_window_add(): cannot add non scrollable widget
-#   use gtk_scrolled_window_add_with_viewport() instead
-
-# TODO: Implement Gtk.Scrollable in GTK+ 3
-#GtkView.set_set_scroll_adjustments_signal("set-scroll-adjustments")
 
 
 # vim: sw=4:et:ai

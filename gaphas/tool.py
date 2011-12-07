@@ -276,7 +276,7 @@ class ItemTool(Tool):
         view = self.view
         item = self.get_item()
 
-        if event.button not in self._buttons:
+        if event.get_button()[1] not in self._buttons:
             return False
         
         # Deselect all items unless CTRL or SHIFT is pressed
@@ -297,7 +297,7 @@ class ItemTool(Tool):
             return True
 
     def on_button_release(self, event):
-        if event.button not in self._buttons:
+        if event.get_button()[1] not in self._buttons:
             return False
         for inmotion in self._movable_items:
             inmotion.stop_move()
@@ -485,7 +485,7 @@ class PanTool(Tool):
     def on_button_press(self, event):
         if not event.get_state()[1] & PAN_MASK == PAN_VALUE:
             return False
-        if event.button == 2:
+        if event.get_button()[1] == 2:
             self.x0, self.y0 = event.x, event.y
             return True
 
@@ -494,7 +494,6 @@ class PanTool(Tool):
         return True
 
     def on_motion_notify(self, event):
-        print 'event state', event.get_state()
         if event.get_state()[1] & Gdk.ModifierType.BUTTON2_MASK:
             view = self.view
             self.x1, self.y1 = event.x, event.y
@@ -512,8 +511,7 @@ class PanTool(Tool):
         if not event.get_state()[1] & PAN_MASK == PAN_VALUE:
             return False
         view = self.view
-        direction = event.direction
-        gdk = Gtk.gdk
+        direction = event.get_scroll_direction()[1]
         if direction == Gdk.ScrollDirection.LEFT:
             view._matrix.translate(self.speed/view._matrix[0], 0)
         elif direction == Gdk.ScrollDirection.RIGHT:
@@ -545,8 +543,7 @@ class ZoomTool(Tool):
     def on_button_press(self, event):
         if event.button == 2 \
                 and event.get_state()[1] & ZOOM_MASK == ZOOM_VALUE:
-            self.x0 = event.x
-            self.y0 = event.y
+            _, self.x0, self.y0 = event.get_coords()
             self.lastdiff = 0
             return True
 
@@ -558,7 +555,8 @@ class ZoomTool(Tool):
         if event.get_state()[1] & ZOOM_MASK == ZOOM_VALUE \
                 and event.get_state()[1] & Gdk.ModifierType.BUTTON2_MASK:
             view = self.view
-            dy = event.y - self.y0
+            _, x, y = event.get_coords()
+            dy = y - self.y0
 
             sx = view._matrix[0]
             sy = view._matrix[3]
@@ -587,10 +585,12 @@ class ZoomTool(Tool):
             view = self.view
             sx = view._matrix[0]
             sy = view._matrix[3]
-            ox = (view._matrix[4] - event.x) / sx
-            oy = (view._matrix[5] - event.y) / sy
+            _, x, y = event.get_coords()
+
+            ox = (view._matrix[4] - x) / sx
+            oy = (view._matrix[5] - y) / sy
             factor = 0.9
-            if event.direction == Gdk.ScrollDirection.UP:    
+            if event.get_scroll_direction()[1] == Gdk.ScrollDirection.UP:    
                 factor = 1. / factor
             view._matrix.translate(-ox, -oy)
             view._matrix.scale(factor, factor)
@@ -674,7 +674,7 @@ class TextEditTool(Tool):
         """
         window = Gtk.Window()
         window.set_property('decorated', False)
-        window.set_resize_mode(Gtk.RESIZE_IMMEDIATE)
+        #window.set_resize_mode(Gtk.RESIZE_IMMEDIATE)
         #window.set_modal(True)
         window.set_parent_window(self.view.window)
         buffer = Gtk.TextBuffer()
